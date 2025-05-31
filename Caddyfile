@@ -1,0 +1,11 @@
+fusionmael.ddns.net {
+  tls internal
+  
+  handle /admin* {
+    reverse_proxy painel:3000
+  }
+  
+  handle {
+    reverse_proxy n8n:5678
+  }
+}

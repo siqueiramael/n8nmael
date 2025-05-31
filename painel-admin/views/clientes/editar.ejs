@@ -1,0 +1,37 @@
+<%- include('../partials/header') %>
+<%- include('../partials/menu') %>
+
+<h2 class="mb-4">Editar Cliente</h2>
+
+<form method="POST" action="/admin/clientes/editar/<%= cliente.id %>">
+  <div class="mb-3">
+    <label for="nome" class="form-label">Nome</label>
+    <input type="text" class="form-control" id="nome" name="nome" value="<%= cliente.nome %>" required>
+  </div>
+  
+  <div class="mb-3">
+    <label for="telefone" class="form-label">Telefone</label>
+    <input type="text" class="form-control" id="telefone" name="telefone" value="<%= cliente.telefone %>" required>
+    <div class="form-text">Formato: (XX) XXXXX-XXXX</div>
+  </div>
+  
+  <div class="mb-3">
+    <label for="telefone_whatsapp" class="form-label">Telefone WhatsApp (opcional)</label>
+    <input type="text" class="form-control" id="telefone_whatsapp" name="telefone_whatsapp" value="<%= cliente.telefone_whatsapp || '' %>">
+  </div>
+  
+  <div class="mb-3">
+    <label for="status" class="form-label">Status</label>
+    <select class="form-select" id="status" name="status">
+      <option value="ativo" <%= cliente.status === 'ativo' ? 'selected' : '' %>>Ativo</option>
+      <option value="inativo" <%= cliente.status === 'inativo' ? 'selected' : '' %>>Inativo</option>
+    </select>
+  </div>
+  
+  <div class="d-flex justify-content-between">
+    <a href="/admin/clientes" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+<%- include('../partials/footer') %>

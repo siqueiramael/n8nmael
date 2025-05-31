@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: n8nio/n8n:1.45.1
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=dbn8n
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      - N8N_HOST=fusionmael.ddns.net
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_SECURE_COOKIE=true
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - TZ=America/Sao_Paulo
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - dbn8n
+      - appdb
+    networks:
+      - rede_interna
+
+  dbn8n:
+    image: postgres:15-alpine
+    container_name: dbn8n
+    environment:
+      - POSTGRES_USER=${DB_POSTGRESDB_USER}
+      - POSTGRES_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      - POSTGRES_DB=n8n
+    volumes:
+      - dbn8n_data:/var/lib/postgresql/data
+    networks:
+      - rede_interna
+
+  appdb:
+    image: postgres:15-alpine
+    container_name: appdb
+    environment:
+      - POSTGRES_USER=${APPDB_USER}
+      - POSTGRES_PASSWORD=${APPDB_PASSWORD}
+      - POSTGRES_DB=appdb
+    volumes:
+      - appdb_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - rede_interna
+
+  painel:
+    build:
+      context: ./painel-admin
+      dockerfile: Dockerfile
+    # A linha de volumes foi removida aqui
+    depends_on:
+      - appdb
+    environment:
+      - PGHOST=appdb
+      - PGUSER=${APPDB_USER}
+      - PGPASSWORD=${APPDB_PASSWORD}
+      - PGDATABASE=${APPDB_NAME}
+      - PGPORT=5432
+    networks:
+      - rede_interna
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - n8n
+      - painel
+    networks:
+      - rede_interna
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+  dbn8n_data:
+  appdb_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  rede_interna:
