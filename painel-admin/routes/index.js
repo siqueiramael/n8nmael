@@ -18,10 +18,10 @@ import logsInteracoesRoutes from './logs-interacoes.js';
 
 const router = express.Router();
 
-// Rota principal do painel admin com cache padronizado
+// Rota principal do painel admin com analytics
 router.get('/', 
   checkPermission('view_all'),
-  cacheMiddleware('dashboard_data', 600), // 10 minutos - dados estáveis
+  cacheMiddleware('dashboard_data', 300), // 5 minutos para dados mais dinâmicos
   async (req, res) => {
     const startTime = Date.now();
     
@@ -33,29 +33,130 @@ router.get('/',
         userAgent: req.get('User-Agent')
       });
       
-      // Buscar dados do dashboard
+      // Buscar dados do dashboard com analytics
       const dbStart = Date.now();
-      const [precos, totalClientes, totalAgendamentos, totalCampanhas, totalQuiosques] = await Promise.all([
+      const [
+        precos, 
+        totalClientes, 
+        totalAgendamentos, 
+        totalCampanhas, 
+        totalQuiosques,
+        // Novos dados para analytics
+        ocupacaoQuiosques,
+        receitaMensal,
+        agendamentosHoje,
+        filaAtendimento,
+        performanceMetrics,
+        receitaDiaria,
+        ocupacaoPorTipo
+      ] = await Promise.all([
         pool.query('SELECT * FROM precos_quiosques ORDER BY tipo_local, numero'),
         pool.query('SELECT COUNT(*) as total FROM clientes WHERE status = \'ativo\''),
         pool.query('SELECT COUNT(*) as total FROM agendamentos WHERE data_agendamento >= CURRENT_DATE'),
         pool.query('SELECT COUNT(*) as total FROM campanhas WHERE status = \'ativo\''),
-        pool.query('SELECT COUNT(*) as total FROM quiosques')
+        pool.query('SELECT COUNT(*) as total FROM quiosques'),
+        
+        // Analytics queries
+        pool.query(`
+          SELECT 
+            q.tipo_local,
+            q.numero,
+            COUNT(a.id) as agendamentos_ativo,
+            CASE WHEN COUNT(a.id) > 0 THEN 'ocupado' ELSE 'livre' END as status
+          FROM quiosques q
+          LEFT JOIN agendamentos a ON q.id = a.quiosque_id 
+            AND a.data_agendamento = CURRENT_DATE 
+            AND a.status IN ('confirmado', 'em_andamento')
+          GROUP BY q.id, q.tipo_local, q.numero
+          ORDER BY q.tipo_local, q.numero
+        `),
+        
+        pool.query(`
+          SELECT 
+            DATE_TRUNC('month', p.data_pagamento) as mes,
+            SUM(p.valor) as receita
+          FROM pagamentos p
+          WHERE p.status = 'pago' 
+            AND p.data_pagamento >= CURRENT_DATE - INTERVAL '12 months'
+          GROUP BY DATE_TRUNC('month', p.data_pagamento)
+          ORDER BY mes
+        `),
+        
+        pool.query(`
+          SELECT COUNT(*) as total 
+          FROM agendamentos 
+          WHERE data_agendamento = CURRENT_DATE
+        `),
+        
+        pool.query(`
+          SELECT 
+            COUNT(*) as total_fila,
+            COUNT(CASE WHEN status = 'aguardando' THEN 1 END) as aguardando,
+            COUNT(CASE WHEN status = 'em_atendimento' THEN 1 END) as em_atendimento
+          FROM fila_atendimento
+          WHERE data_entrada >= CURRENT_DATE
+        `),
+        
+        pool.query(`
+          SELECT 
+            AVG(EXTRACT(EPOCH FROM (data_fim - data_inicio))/60) as tempo_medio_atendimento,
+            COUNT(*) as total_atendimentos_hoje,
+            COUNT(CASE WHEN status = 'finalizado' THEN 1 END) as finalizados_hoje
+          FROM fila_atendimento
+          WHERE data_entrada >= CURRENT_DATE
+        `),
+        
+        pool.query(`
+          SELECT 
+            DATE(p.data_pagamento) as data,
+            SUM(p.valor) as receita_diaria
+          FROM pagamentos p
+          WHERE p.status = 'pago' 
+            AND p.data_pagamento >= CURRENT_DATE - INTERVAL '30 days'
+          GROUP BY DATE(p.data_pagamento)
+          ORDER BY data
+        `),
+        
+        pool.query(`
+          SELECT 
+            q.tipo_local,
+            COUNT(*) as total,
+            COUNT(CASE WHEN a.status IN ('confirmado', 'em_andamento') THEN 1 END) as ocupados
+          FROM quiosques q
+          LEFT JOIN agendamentos a ON q.id = a.quiosque_id 
+            AND a.data_agendamento = CURRENT_DATE
+          GROUP BY q.tipo_local
+        `)
       ]);
+      
       const dbDuration = Date.now() - dbStart;
       
-      loggers.database.query('Dashboard data queries', {
+      loggers.database.query('Dashboard analytics queries', {
         duration: dbDuration,
-        queries: 5,
+        queries: 12,
         userId: req.user?.id
       });
       
       const dashboardData = {
+        // Dados básicos
         precos: precos.rows,
         totalClientes: totalClientes.rows[0].total,
         totalAgendamentos: totalAgendamentos.rows[0].total,
         totalCampanhas: totalCampanhas.rows[0].total,
-        totalQuiosques: totalQuiosques.rows[0].total
+        totalQuiosques: totalQuiosques.rows[0].total,
+        
+        // Analytics data
+        ocupacaoQuiosques: ocupacaoQuiosques.rows,
+        receitaMensal: receitaMensal.rows,
+        agendamentosHoje: agendamentosHoje.rows[0].total,
+        filaAtendimento: filaAtendimento.rows[0],
+        performanceMetrics: performanceMetrics.rows[0],
+        receitaDiaria: receitaDiaria.rows,
+        ocupacaoPorTipo: ocupacaoPorTipo.rows,
+        
+        // Métricas calculadas
+        taxaOcupacao: Math.round((ocupacaoQuiosques.rows.filter(q => q.status === 'ocupado').length / ocupacaoQuiosques.rows.length) * 100),
+        receitaTotal: receitaMensal.rows.reduce((sum, r) => sum + parseFloat(r.receita || 0), 0)
       };
       
       loggers.performance.request(
@@ -66,9 +167,10 @@ router.get('/',
         req.user?.id
       );
       
-      res.json({ 
+      res.render('admin', { 
         ...dashboardData,
-        activeMenu: 'dashboard'
+        activeMenu: 'dashboard',
+        pageTitle: 'Dashboard Analytics'
       });
     } catch (error) {
       const duration = Date.now() - startTime;

@@ -4,7 +4,7 @@
 <!-- Breadcrumb -->
 <nav aria-label="breadcrumb" class="mb-4">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+    <li class="breadcrumb-item active" aria-current="page">Dashboard Analytics</li>
   </ol>
 </nav>
 
@@ -12,12 +12,172 @@
   <div class="row">
     <div class="col-12">
       <h2 class="mb-4">
-        <i class="fas fa-tachometer-alt"></i> Dashboard Administrativo
+        <i class="fas fa-chart-line"></i> Dashboard Analytics
+        <small class="text-muted">Visão geral em tempo real</small>
       </h2>
     </div>
   </div>
 
-  <!-- Cards de Resumo -->
+  <!-- KPI Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card text-white bg-primary analytics-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title text-uppercase">Taxa de Ocupação</h6>
+              <h2 class="mb-0"><%= typeof taxaOcupacao !== 'undefined' ? taxaOcupacao : '0' %>%</h2>
+              <small>Quiosques ocupados hoje</small>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-chart-pie fa-2x opacity-75"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-white bg-success analytics-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title text-uppercase">Receita Mensal</h6>
+              <h2 class="mb-0">R$ <%= typeof receitaTotal !== 'undefined' ? Number(receitaTotal).toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '0,00' %></h2>
+              <small>Últimos 12 meses</small>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-dollar-sign fa-2x opacity-75"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-white bg-warning analytics-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title text-uppercase">Agendamentos Hoje</h6>
+              <h2 class="mb-0"><%= typeof agendamentosHoje !== 'undefined' ? agendamentosHoje : '0' %></h2>
+              <small>Confirmados para hoje</small>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-calendar-check fa-2x opacity-75"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-white bg-info analytics-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title text-uppercase">Fila de Atendimento</h6>
+              <h2 class="mb-0"><%= typeof filaAtendimento !== 'undefined' ? filaAtendimento.aguardando : '0' %></h2>
+              <small>Aguardando atendimento</small>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-users fa-2x opacity-75"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráficos Analytics -->
+  <div class="row mb-4">
+    <!-- Gráfico de Ocupação -->
+    <div class="col-lg-6">
+      <div class="card analytics-chart">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-donut"></i> Ocupação por Tipo
+          </h5>
+        </div>
+        <div class="card-body">
+          <canvas id="ocupacaoChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfico de Receita -->
+    <div class="col-lg-6">
+      <div class="card analytics-chart">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-line"></i> Receita Mensal
+          </h5>
+        </div>
+        <div class="card-body">
+          <canvas id="receitaChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance Metrics -->
+  <div class="row mb-4">
+    <div class="col-lg-8">
+      <div class="card analytics-chart">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-area"></i> Receita Diária (Últimos 30 dias)
+          </h5>
+        </div>
+        <div class="card-body">
+          <canvas id="receitaDiariaChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-tachometer-alt"></i> Indicadores de Performance
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="performance-metric mb-3">
+            <div class="d-flex justify-content-between">
+              <span>Tempo Médio de Atendimento</span>
+              <strong><%= typeof performanceMetrics !== 'undefined' && performanceMetrics.tempo_medio_atendimento ? Math.round(performanceMetrics.tempo_medio_atendimento) : '0' %> min</strong>
+            </div>
+            <div class="progress mt-1">
+              <div class="progress-bar bg-info" style="width: <%= typeof performanceMetrics !== 'undefined' && performanceMetrics.tempo_medio_atendimento ? Math.min((performanceMetrics.tempo_medio_atendimento / 60) * 100, 100) : 0 %>%"></div>
+            </div>
+          </div>
+
+          <div class="performance-metric mb-3">
+            <div class="d-flex justify-content-between">
+              <span>Atendimentos Finalizados</span>
+              <strong><%= typeof performanceMetrics !== 'undefined' ? performanceMetrics.finalizados_hoje : '0' %></strong>
+            </div>
+            <div class="progress mt-1">
+              <div class="progress-bar bg-success" style="width: <%= typeof performanceMetrics !== 'undefined' && performanceMetrics.total_atendimentos_hoje > 0 ? (performanceMetrics.finalizados_hoje / performanceMetrics.total_atendimentos_hoje) * 100 : 0 %>%"></div>
+            </div>
+          </div>
+
+          <div class="performance-metric">
+            <div class="d-flex justify-content-between">
+              <span>Eficiência Operacional</span>
+              <strong><%= typeof taxaOcupacao !== 'undefined' ? taxaOcupacao : '0' %>%</strong>
+            </div>
+            <div class="progress mt-1">
+              <div class="progress-bar bg-warning" style="width: <%= typeof taxaOcupacao !== 'undefined' ? taxaOcupacao : '0' %>%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards de Resumo Tradicionais -->
   <div class="row mb-4">
     <div class="col-md-3">
       <div class="card text-white bg-primary permission-badge" data-permission="dashboard.view">
@@ -104,7 +264,7 @@
     </div>
   </div>
 
-  <!-- Seção de Preços -->
+  <!-- Seção de Preços (Mantida) -->
   <div class="row">
     <div class="col-12">
       <div class="card permission-badge" data-permission="precos.view">
@@ -178,5 +338,132 @@
     </div>
   </div>
 </div>
+
+<!-- Chart.js Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Dados para os gráficos
+const ocupacaoData = <%- JSON.stringify(ocupacaoPorTipo || []) %>;
+const receitaMensalData = <%- JSON.stringify(receitaMensal || []) %>;
+const receitaDiariaData = <%- JSON.stringify(receitaDiaria || []) %>;
+
+// Gráfico de Ocupação por Tipo
+const ocupacaoCtx = document.getElementById('ocupacaoChart').getContext('2d');
+new Chart(ocupacaoCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ocupacaoData.map(item => item.tipo_local.charAt(0).toUpperCase() + item.tipo_local.slice(1)),
+    datasets: [{
+      data: ocupacaoData.map(item => item.ocupados),
+      backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545'],
+      borderWidth: 2,
+      borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom'
+      }
+    }
+  }
+});
+
+// Gráfico de Receita Mensal
+const receitaCtx = document.getElementById('receitaChart').getContext('2d');
+new Chart(receitaCtx, {
+  type: 'line',
+  data: {
+    labels: receitaMensalData.map(item => {
+      const date = new Date(item.mes);
+      return date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+    }),
+    datasets: [{
+      label: 'Receita (R$)',
+      data: receitaMensalData.map(item => parseFloat(item.receita)),
+      borderColor: '#198754',
+      backgroundColor: 'rgba(25, 135, 84, 0.1)',
+      fill: true,
+      tension: 0.4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return 'R$ ' + value.toLocaleString('pt-BR');
+          }
+        }
+      }
+    }
+  }
+});
+
+// Gráfico de Receita Diária
+const receitaDiariaCtx = document.getElementById('receitaDiariaChart').getContext('2d');
+new Chart(receitaDiariaCtx, {
+  type: 'bar',
+  data: {
+    labels: receitaDiariaData.map(item => {
+      const date = new Date(item.data);
+      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    }),
+    datasets: [{
+      label: 'Receita Diária (R$)',
+      data: receitaDiariaData.map(item => parseFloat(item.receita_diaria)),
+      backgroundColor: 'rgba(13, 110, 253, 0.8)',
+      borderColor: '#0d6efd',
+      borderWidth: 1
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return 'R$ ' + value.toLocaleString('pt-BR');
+          }
+        }
+      }
+    }
+  }
+});
+
+// Auto-refresh do dashboard a cada 5 minutos
+setInterval(() => {
+  window.location.reload();
+}, 300000);
+</script>
+
+<style>
+.analytics-card {
+  transition: transform 0.2s;
+}
+
+.analytics-card:hover {
+  transform: translateY(-2px);
+}
+
+.analytics-chart {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.performance-metric .progress {
+  height: 8px;
+}
+
+.opacity-75 {
+  opacity: 0.75;
+}
+</style>
 
 <%- include('partials/footer') %>
