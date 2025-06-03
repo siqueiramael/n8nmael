@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('../partials/head') %>
+  <title>Relatório - Logs de Interações</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <%- include('../partials/menu') %>
+  
+  <!-- Breadcrumbs -->
+  <%- include('../partials/breadcrumbs', { 
+    breadcrumbs: [
+      { name: 'Dashboard', url: '/admin' },
+      { name: 'Logs de Interações', url: '/admin/logs-interacoes' },
+      { name: 'Relatório', url: '/admin/logs-interacoes/relatorio', active: true }
+    ]
+  }) %>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-12">
+        <div class="permission-badge" data-permission="logs-interacoes.relatorios">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-chart-bar"></i> Relatório de Logs de Interações</h2>
+            <div>
+              <a href="/admin/logs-interacoes" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar
+              </a>
+            </div>
+          </div>
+          
+          <div class="row">
+            <!-- Gráfico por tipo -->
+            <div class="col-md-6 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="mb-0">Distribuição por Tipo</h5>
+                </div>
+                <div class="card-body">
+                  <canvas id="chartTipos"></canvas>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Gráfico por dia -->
+            <div class="col-md-6 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="mb-0">Interações por Dia (Últimos 30 dias)</h5>
+                </div>
+                <div class="card-body">
+                  <canvas id="chartPorDia"></canvas>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Tabela por tipo -->
+            <div class="col-md-6 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="mb-0">Estatísticas por Tipo</h5>
+                </div>
+                <div class="card-body">
+                  <table class="table table-striped">
+                    <thead>
+                      <tr>
+                        <th>Tipo</th>
+                        <th>Total</th>
+                        <th>Percentual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% 
+                        const totalInteracoes = estatisticasTipos.reduce((sum, item) => sum + parseInt(item.total), 0);
+                        estatisticasTipos.forEach(item => { 
+                      %>
+                        <tr>
+                          <td>
+                            <span class="badge <%= 
+                              item.tipo === 'voz' ? 'bg-primary' : 
+                              item.tipo === 'texto' ? 'bg-success' : 
+                              item.tipo === 'imagem' ? 'bg-info' : 
+                              item.tipo === 'sistema' ? 'bg-secondary' : 'bg-dark' 
+                            %>"><%= item.tipo %></span>
+                          </td>
+                          <td><%= item.total %></td>
+                          <td><%= ((item.total / totalInteracoes) * 100).toFixed(1) %>%</td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                    <tfoot>
+                      <tr class="table-dark">
+                        <th>Total</th>
+                        <th><%= totalInteracoes %></th>
+                        <th>100%</th>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Origens e Destinos -->
+            <div class="col-md-6 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="mb-0">Top 10 Origens e Destinos</h5>
+                </div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <h6>Origens</h6>
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Origem</th>
+                            <th>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <% estatisticasOrigens.forEach(item => { %>
+                            <tr>
+                              <td><%= item.origem || 'Não definido' %></td>
+                              <td><%= item.total %></td>
+                            </tr>
+                          <% }) %>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="col-md-6">
+                      <h6>Destinos</h6>
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Destino</th>
+                            <th>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <% estatisticasDestinos.forEach(item => { %>
+                            <tr>
+                              <td><%= item.destino || 'Não definido' %></td>
+                              <td><%= item.total %></td>
+                            </tr>
+                          <% }) %>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Dados para os gráficos
+  const tiposData = {
+    labels: [<%= estatisticasTipos.map(item => `'${item.tipo}'`).join(',') %>],
+    datasets: [{
+      label: 'Total de Interações',
+      data: [<%= estatisticasTipos.map(item => item.total).join(',') %>],
+      backgroundColor: [
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(153, 102, 255, 0.7)',
+        'rgba(255, 159, 64, 0.7)',
+        'rgba(255, 99, 132, 0.7)'
+      ],
+      borderWidth: 1
+    }]
+  };
+  
+  const porDiaData = {
+    labels: [<%= estatisticasPorDia.map(item => `'${new Date(item.data).toLocaleDateString('pt-BR')}'`).join(',') %>],
+    datasets: [{
+      label: 'Interações por Dia',
+      data: [<%= estatisticasPorDia.map(item => item.total).join(',') %>],
+      borderColor: 'rgba(75, 192, 192, 1)',
+      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+      tension: 0.1,
+      fill: true
+    }]
+  };
+  
+  // Renderizar gráficos
+  window.addEventListener('DOMContentLoaded', () => {
+    // Gráfico de tipos
+    new Chart(document.getElementById('chartTipos'), {
+      type: 'pie',
+      data: tiposData,
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'right',
+          },
+          title: {
+            display: true,
+            text: 'Distribuição por Tipo de Interação'
+          }
+        }
+      }
+    });
+    
+    // Gráfico por dia
+    new Chart(document.getElementById('chartPorDia'), {
+      type: 'line',
+      data: porDiaData,
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          title: {
+            display: true,
+            text: 'Interações por Dia (Últimos 30 dias)'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0
+            }
+          }
+        }
+      }
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>

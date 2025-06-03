@@ -1,52 +1,182 @@
 <%- include('partials/header') %>
 <%- include('partials/menu') %>
 
-<h2>Painel de Preços</h2>
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+  </ol>
+</nav>
 
-<form class="row g-3" method="POST" action="/admin/precos">
-  <div class="col-md-2">
-    <select class="form-select" name="tipo_local" required>
-      <option value="quiosque">Quiosque</option>
-      <option value="barracao">Barracão</option>
-    </select>
+<div class="container-fluid main-content">
+  <div class="row">
+    <div class="col-12">
+      <h2 class="mb-4">
+        <i class="fas fa-tachometer-alt"></i> Dashboard Administrativo
+      </h2>
+    </div>
   </div>
-  <div class="col-md-1">
-    <input type="number" name="numero" class="form-control" placeholder="Número">
-  </div>
-  <div class="col-md-2">
-    <input type="number" name="valor" class="form-control" placeholder="Valor" step="0.01" required>
-  </div>
-  <div class="col-md-2">
-    <input type="date" name="data_inicio" class="form-control" required>
-  </div>
-  <div class="col-md-2">
-    <input type="date" name="data_fim" class="form-control">
-  </div>
-  <div class="col-md-3">
-    <input type="text" name="motivo" class="form-control" placeholder="Motivo (opcional)">
-  </div>
-  <div class="col-md-12 text-end">
-    <button type="submit" class="btn btn-primary">Salvar</button>
-  </div>
-</form>
 
-<hr>
-<h4>Preços Atuais</h4>
-<table class="table table-striped">
-  <thead><tr><th>ID</th><th>Tipo</th><th>Número</th><th>Valor</th><th>Início</th><th>Fim</th><th>Motivo</th></tr></thead>
-  <tbody>
-    <% precos.forEach(p => { %>
-      <tr>
-        <td><%= p.id %></td>
-        <td><%= p.tipo_local %></td>
-        <td><%= p.numero %></td>
-        <td>R$ <%= Number(p.valor).toFixed(2) %></td>
-        <td><%= p.data_inicio %></td>
-        <td><%= p.data_fim || '-' %></td>
-        <td><%= p.motivo || '-' %></td>
-      </tr>
-    <% }) %>
-  </tbody>
-</table>
+  <!-- Cards de Resumo -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card text-white bg-primary permission-badge" data-permission="dashboard.view">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h5 class="card-title">Clientes</h5>
+              <h3 class="mb-0"><%= typeof totalClientes !== 'undefined' ? totalClientes : '0' %></h3>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-users fa-2x"></i>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer permission-badge" data-permission="clientes.view">
+          <a href="/admin/clientes" class="text-white text-decoration-none">
+            <small>Ver detalhes <i class="fas fa-arrow-right"></i></small>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-white bg-success permission-badge" data-permission="dashboard.view">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h5 class="card-title">Agendamentos</h5>
+              <h3 class="mb-0"><%= typeof totalAgendamentos !== 'undefined' ? totalAgendamentos : '0' %></h3>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-calendar fa-2x"></i>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer permission-badge" data-permission="agendamentos.view">
+          <a href="/admin/agendamentos" class="text-white text-decoration-none">
+            <small>Ver detalhes <i class="fas fa-arrow-right"></i></small>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-white bg-warning permission-badge" data-permission="dashboard.view">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h5 class="card-title">Campanhas</h5>
+              <h3 class="mb-0"><%= typeof totalCampanhas !== 'undefined' ? totalCampanhas : '0' %></h3>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-bullhorn fa-2x"></i>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer permission-badge" data-permission="campanhas.view">
+          <a href="/admin/campanhas" class="text-white text-decoration-none">
+            <small>Ver detalhes <i class="fas fa-arrow-right"></i></small>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-white bg-info permission-badge" data-permission="dashboard.view">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h5 class="card-title">Quiosques</h5>
+              <h3 class="mb-0"><%= typeof totalQuiosques !== 'undefined' ? totalQuiosques : '0' %></h3>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-store fa-2x"></i>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer permission-badge" data-permission="quiosques.view">
+          <a href="/admin/quiosques" class="text-white text-decoration-none">
+            <small>Ver detalhes <i class="fas fa-arrow-right"></i></small>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seção de Preços -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card permission-badge" data-permission="precos.view">
+        <div class="card-header">
+          <h4 class="mb-0">
+            <i class="fas fa-dollar-sign"></i> Painel de Preços
+          </h4>
+        </div>
+        <div class="card-body">
+          <form class="row g-3" method="POST" action="/admin/precos" class="permission-badge" data-permission="precos.create">
+            <div class="col-md-2">
+              <select class="form-select" name="tipo_local" required>
+                <option value="quiosque">Quiosque</option>
+                <option value="barracao">Barracão</option>
+              </select>
+            </div>
+            <div class="col-md-1">
+              <input type="number" name="numero" class="form-control" placeholder="Número">
+            </div>
+            <div class="col-md-2">
+              <input type="number" name="valor" class="form-control" placeholder="Valor" step="0.01" required>
+            </div>
+            <div class="col-md-2">
+              <input type="date" name="data_inicio" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <input type="date" name="data_fim" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <input type="text" name="motivo" class="form-control" placeholder="Motivo (opcional)">
+            </div>
+            <div class="col-md-12 text-end">
+              <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+          </form>
+
+          <hr>
+          <h5>Preços Atuais</h5>
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead class="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Tipo</th>
+                  <th>Número</th>
+                  <th>Valor</th>
+                  <th>Início</th>
+                  <th>Fim</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (typeof precos !== 'undefined') { %>
+                  <% precos.forEach(p => { %>
+                    <tr>
+                      <td><%= p.id %></td>
+                      <td><%= p.tipo_local %></td>
+                      <td><%= p.numero %></td>
+                      <td>R$ <%= Number(p.valor).toFixed(2) %></td>
+                      <td><%= p.data_inicio %></td>
+                      <td><%= p.data_fim || '-' %></td>
+                      <td><%= p.motivo || '-' %></td>
+                    </tr>
+                  <% }) %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <%- include('partials/footer') %>

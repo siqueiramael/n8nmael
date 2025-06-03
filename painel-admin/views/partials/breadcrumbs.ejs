@@ -1,0 +1,26 @@
+<% if (typeof breadcrumbs !== 'undefined' && breadcrumbs && breadcrumbs.length > 0) { %>
+<nav aria-label="breadcrumb" class="mb-4">
+  <ol class="breadcrumb bg-light p-3 rounded">
+    <li class="breadcrumb-item">
+      <a href="/admin" class="text-decoration-none">
+        <i class="fas fa-home"></i> Início
+      </a>
+    </li>
+    <% breadcrumbs.forEach((crumb, index) => { %>
+      <% if (index === breadcrumbs.length - 1) { %>
+        <li class="breadcrumb-item active" aria-current="page">
+          <% if (crumb.icon) { %><i class="<%= crumb.icon %>"></i> <% } %>
+          <%= crumb.title %>
+        </li>
+      <% } else { %>
+        <li class="breadcrumb-item">
+          <a href="<%= crumb.url %>" class="text-decoration-none">
+            <% if (crumb.icon) { %><i class="<%= crumb.icon %>"></i> <% } %>
+            <%= crumb.title %>
+          </a>
+        </li>
+      <% } %>
+    <% }) %>
+  </ol>
+</nav>
+<% } %>

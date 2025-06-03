@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db/index.js';
+import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 
 const router = express.Router();
 

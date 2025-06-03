@@ -1,0 +1,56 @@
+<%- include('../partials/header') %>
+<%- include('../partials/menu') %>
+
+<h2 class="mb-4">Editar Pagamento</h2>
+
+<div class="card mb-4">
+  <div class="card-header">Informações do Agendamento</div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-4">
+        <p><strong>Cliente:</strong> <%= pagamento.cliente_nome %></p>
+      </div>
+      <div class="col-md-4">
+        <p><strong>Local:</strong> <%= pagamento.local_info %></p>
+      </div>
+      <div class="col-md-4">
+        <p><strong>Data:</strong> <%= new Date(pagamento.data_agendamento).toLocaleDateString('pt-BR') %></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="POST" action="/admin/pagamentos/editar/<%= pagamento.id %>">
+  <div class="mb-3">
+    <label for="valor" class="form-label">Valor (R$)</label>
+    <input type="number" step="0.01" class="form-control" id="valor" name="valor" 
+           value="<%= pagamento.valor %>" required>
+  </div>
+  
+  <div class="mb-3">
+    <label for="status" class="form-label">Status</label>
+    <select class="form-select" id="status" name="status" required>
+      <option value="pendente" <%= pagamento.status === 'pendente' ? 'selected' : '' %>>Pendente</option>
+      <option value="confirmado" <%= pagamento.status === 'confirmado' ? 'selected' : '' %>>Confirmado</option>
+      <option value="cancelado" <%= pagamento.status === 'cancelado' ? 'selected' : '' %>>Cancelado</option>
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label for="comprovante_url" class="form-label">URL do Comprovante</label>
+    <input type="text" class="form-control" id="comprovante_url" name="comprovante_url" 
+           value="<%= pagamento.comprovante_url || '' %>">
+    <% if (pagamento.comprovante_url) { %>
+      <div class="mt-2">
+        <a href="<%= pagamento.comprovante_url %>" target="_blank" class="btn btn-sm btn-outline-info">Ver Comprovante</a>
+      </div>
+    <% } %>
+  </div>
+  
+  <div class="d-flex justify-content-between">
+    <a href="/admin/pagamentos" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+<%- include('../partials/footer') %>

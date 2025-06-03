@@ -175,3 +175,73 @@ INSERT INTO precos_quiosques (tipo_local, numero, valor, data_inicio) VALUES
 ('quiosque', 1, 100.00, CURRENT_DATE),
 ('quiosque', 2, 100.00, CURRENT_DATE),
 ('barracao', NULL, 200.00, CURRENT_DATE);
+
+
+-- Adicionar ao init.sql
+
+-- Tabela de usuários
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    ativo BOOLEAN DEFAULT true,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de permissões
+CREATE TABLE permissoes (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) UNIQUE NOT NULL,
+    descricao TEXT,
+    categoria VARCHAR(50)
+);
+
+-- Tabela de relacionamento usuário-permissões
+CREATE TABLE usuario_permissoes (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    permissao_id INTEGER REFERENCES permissoes(id) ON DELETE CASCADE,
+    UNIQUE(usuario_id, permissao_id)
+);
+
+-- Inserir permissões padrão
+INSERT INTO permissoes (nome, descricao, categoria) VALUES
+('view_all', 'Visualizar tudo', 'admin'),
+('edit_all', 'Editar tudo', 'admin'),
+('delete_all', 'Excluir tudo', 'admin'),
+('view_clientes', 'Visualizar clientes', 'clientes'),
+('edit_clientes', 'Editar clientes', 'clientes'),
+('delete_clientes', 'Excluir clientes', 'clientes'),
+('view_agendamentos', 'Visualizar agendamentos', 'operacional'),
+('edit_agendamentos', 'Editar agendamentos', 'operacional'),
+('delete_agendamentos', 'Excluir agendamentos', 'operacional'),
+('view_pagamentos', 'Visualizar pagamentos', 'financeiro'),
+('edit_pagamentos', 'Editar pagamentos', 'financeiro'),
+('view_creditos', 'Visualizar créditos', 'financeiro'),
+('edit_creditos', 'Editar créditos', 'financeiro'),
+('view_infraestrutura', 'Visualizar infraestrutura', 'sistema'),
+('edit_infraestrutura', 'Editar infraestrutura', 'sistema'),
+('view_midias', 'Visualizar mídias', 'sistema'),
+('edit_midias', 'Editar mídias', 'sistema'),
+('view_campanhas', 'Visualizar campanhas', 'marketing'),
+('edit_campanhas', 'Editar campanhas', 'marketing'),
+('view_fila_atendimento', 'Visualizar fila de atendimento', 'operacional'),
+('edit_fila_atendimento', 'Editar fila de atendimento', 'operacional'),
+('view_fila_espera', 'Visualizar fila de espera', 'operacional'),
+('edit_fila_espera', 'Editar fila de espera', 'operacional'),
+('view_logs', 'Visualizar logs', 'sistema'),
+('view_reports', 'Visualizar relatórios', 'sistema');
+
+-- Criar usuário admin padrão
+INSERT INTO usuarios (nome, email, password_hash, role) VALUES
+('Administrador', 'admin@sistema.com', '$2b$10$hash_aqui', 'admin');
+
+-- Dar todas as permissões ao admin
+INSERT INTO usuario_permissoes (usuario_id, permissao_id)
+SELECT 1, id FROM permissoes;
+
+-- Atualizar usuário admin com hash real (senha: admin123)
+UPDATE usuarios SET password_hash = '$2b$10$rOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQ' WHERE email = 'admin@sistema.com';

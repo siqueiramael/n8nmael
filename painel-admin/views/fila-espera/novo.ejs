@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('../partials/head') %>
+  <title>Novo Item - Fila de Espera</title>
+</head>
+<body>
+  <%- include('../partials/menu') %>
+  
+  <!-- Breadcrumbs -->
+  <%- include('../partials/breadcrumbs', { 
+    breadcrumbs: [
+      { name: 'Dashboard', url: '/admin' },
+      { name: 'Fila de Espera', url: '/admin/fila-espera' },
+      { name: 'Novo Item', url: '/admin/fila-espera/novo', active: true }
+    ]
+  }) %>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-12">
+        <div class="permission-badge" data-permission="fila-espera.criar">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-plus"></i> Novo Item na Fila de Espera</h2>
+            <a href="/admin/fila-espera" class="btn btn-secondary">
+              <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+          </div>
+          
+          <div class="card">
+            <div class="card-body">
+              <form method="POST" action="/admin/fila-espera">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="cliente_id" class="form-label">Cliente *</label>
+                      <select name="cliente_id" id="cliente_id" class="form-select" required>
+                        <option value="">Selecione um cliente</option>
+                        <% clientes.forEach(cliente => { %>
+                          <option value="<%= cliente.id %>"><%= cliente.nome %> - <%= cliente.telefone %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="data_interesse" class="form-label">Data de Interesse *</label>
+                      <input type="date" name="data_interesse" id="data_interesse" class="form-control" required>
+                    </div>
+                  </div>
+                  
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label for="tipo_local" class="form-label">Tipo de Local</label>
+                      <select name="tipo_local" id="tipo_local" class="form-select">
+                        <option value="">Qualquer</option>
+                        <option value="quiosque">Quiosque</option>
+                        <option value="barracao">Barracão</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label for="numero" class="form-label">Número Específico</label>
+                      <input type="number" name="numero" id="numero" class="form-control" min="1">
+                      <div class="form-text">Deixe em branco para qualquer número</div>
+                    </div>
+                  </div>
+                  
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label for="status" class="form-label">Status</label>
+                      <select name="status" id="status" class="form-select">
+                        <option value="aguardando">Aguardando</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="d-flex justify-content-end">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Salvar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

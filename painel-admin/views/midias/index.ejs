@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('../partials/head') %>
+  <title>Mídias - Painel Admin</title>
+</head>
+<body>
+  <%- include('../partials/menu') %>
+  
+  <!-- Breadcrumbs -->
+  <%- include('../partials/breadcrumbs', { 
+    breadcrumbs: [
+      { name: 'Dashboard', url: '/admin' },
+      { name: 'Mídias', url: '/admin/midias', active: true }
+    ]
+  }) %>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><i class="fas fa-photo-video"></i> Gerenciamento de Mídias</h2>
+          <div>
+            <span class="permission-badge" data-permission="midias.criar">
+              <a href="/admin/midias/novo" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nova Mídia
+              </a>
+            </span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Tipo</th>
+                    <th>Título</th>
+                    <th>Descrição</th>
+                    <th>Referência</th>
+                    <th>Data de Criação</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% midias.forEach(midia => { %>
+                    <tr>
+                      <td><%= midia.id %></td>
+                      <td>
+                        <span class="badge bg-<%= midia.tipo === 'imagem' ? 'primary' : midia.tipo === 'video' ? 'success' : 'info' %>">
+                          <%= midia.tipo %>
+                        </span>
+                      </td>
+                      <td><%= midia.titulo || '-' %></td>
+                      <td><%= midia.descricao ? (midia.descricao.length > 50 ? midia.descricao.substring(0, 50) + '...' : midia.descricao) : '-' %></td>
+                      <td>
+                        <% if (midia.referencia_tipo === 'quiosque') { %>
+                          Quiosque <%= midia.quiosque_numero %>
+                        <% } else if (midia.referencia_tipo) { %>
+                          <%= midia.referencia_tipo %>
+                        <% } else { %>
+                          Geral
+                        <% } %>
+                      </td>
+                      <td><%= new Date(midia.data_criacao).toLocaleDateString('pt-BR') %></td>
+                      <td>
+                        <span class="permission-badge" data-permission="midias.visualizar">
+                          <a href="<%= midia.url %>" target="_blank" class="btn btn-sm btn-outline-info me-1">
+                            <i class="fas fa-eye"></i> Ver
+                          </a>
+                        </span>
+                        <span class="permission-badge" data-permission="midias.editar">
+                          <a href="/admin/midias/editar/<%= midia.id %>" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i> Editar
+                          </a>
+                        </span>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <%- include('../partials/footer') %>
+</body>
+</html>

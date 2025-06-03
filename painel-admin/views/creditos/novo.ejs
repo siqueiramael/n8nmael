@@ -1,0 +1,82 @@
+<%- include('../partials/header', { title: 'Novo Crédito' }) %>
+<%- include('../partials/breadcrumbs', { breadcrumbs: breadcrumbs }) %>
+<%- include('../partials/menu') %>
+
+<h2 class="mb-4">Novo Crédito</h2>
+
+<form method="POST" action="/admin/creditos">
+  <div class="mb-3">
+    <label for="cliente_id" class="form-label">Cliente</label>
+    <select class="form-select" id="cliente_id" name="cliente_id" required>
+      <option value="">Selecione um cliente</option>
+      <% clientes.forEach(cliente => { %>
+        <option value="<%= cliente.id %>"><%= cliente.nome %></option>
+      <% }) %>
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label for="origem_agendamento_id" class="form-label">Agendamento de Origem (opcional)</label>
+    <select class="form-select" id="origem_agendamento_id" name="origem_agendamento_id">
+      <option value="">Selecione um agendamento cancelado (opcional)</option>
+      <% agendamentos.forEach(agendamento => { %>
+        <option value="<%= agendamento.id %>" data-valor="<%= agendamento.valor %>" data-cliente="<%= agendamento.cliente_id %>">
+          <%= new Date(agendamento.data_agendamento).toLocaleDateString('pt-BR') %> - 
+          <%= agendamento.cliente_nome %> - 
+          <%= agendamento.local_info %> - 
+          R$ <%= agendamento.valor.toFixed(2).replace('.', ',') %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label for="valor" class="form-label">Valor (R$)</label>
+    <input type="number" step="0.01" class="form-control" id="valor" name="valor" required>
+  </div>
+  
+  <div class="mb-3">
+    <label for="data_vencimento" class="form-label">Data de Vencimento (opcional)</label>
+    <input type="date" class="form-control" id="data_vencimento" name="data_vencimento">
+  </div>
+  
+  <div class="mb-3">
+    <label for="status" class="form-label">Status</label>
+    <select class="form-select" id="status" name="status" required>
+      <option value="ativo">Ativo</option>
+      <option value="utilizado">Utilizado</option>
+      <option value="expirado">Expirado</option>
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label for="observacoes" class="form-label">Observações (opcional)</label>
+    <textarea class="form-control" id="observacoes" name="observacoes" rows="3"></textarea>
+  </div>
+  
+  <div class="d-flex justify-content-between">
+    <a href="/admin/creditos" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+<script>
+// Auto-preenchimento quando selecionar agendamento
+document.getElementById('origem_agendamento_id').addEventListener('change', function() {
+  const selectedOption = this.options[this.selectedIndex];
+  if (selectedOption.value) {
+    const valor = selectedOption.getAttribute('data-valor');
+    const clienteId = selectedOption.getAttribute('data-cliente');
+    
+    if (valor) {
+      document.getElementById('valor').value = valor;
+    }
+    
+    if (clienteId) {
+      document.getElementById('cliente_id').value = clienteId;
+    }
+  }
+});
+</script>
+
+<%- include('../partials/footer') %>

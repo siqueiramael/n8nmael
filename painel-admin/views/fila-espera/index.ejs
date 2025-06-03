@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('../partials/head') %>
+  <title>Fila de Espera - Painel Admin</title>
+</head>
+<body>
+  <%- include('../partials/menu') %>
+  
+  <!-- Breadcrumbs -->
+  <%- include('../partials/breadcrumbs', { 
+    breadcrumbs: [
+      { name: 'Dashboard', url: '/admin' },
+      { name: 'Fila de Espera', url: '/admin/fila-espera', active: true }
+    ]
+  }) %>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><i class="fas fa-clock"></i> Fila de Espera</h2>
+          <div>
+            <span class="permission-badge" data-permission="fila-espera.relatorios">
+              <a href="/admin/fila-espera/relatorio" class="btn btn-info me-2">
+                <i class="fas fa-chart-bar"></i> Relatório
+              </a>
+            </span>
+            <button onclick="processarFila()" class="btn btn-warning me-2">
+              <i class="fas fa-cogs"></i> Processar Fila
+            </button>
+            <span class="permission-badge" data-permission="fila-espera.criar">
+              <a href="/admin/fila-espera/novo" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Novo Item
+              </a>
+            </span>
+          </div>
+        </div>
+        
+        <!-- Filtros -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <form method="GET" class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                  <option value="">Todos</option>
+                  <option value="aguardando" <%= filtros.status === 'aguardando' ? 'selected' : '' %>>Aguardando</option>
+                  <option value="processado" <%= filtros.status === 'processado' ? 'selected' : '' %>>Processado</option>
+                  <option value="cancelado" <%= filtros.status === 'cancelado' ? 'selected' : '' %>>Cancelado</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Data de Interesse</label>
+                <input type="date" name="data_interesse" class="form-control" value="<%= filtros.data_interesse || '' %>">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Tipo de Local</label>
+                <select name="tipo_local" class="form-select">
+                  <option value="">Todos</option>
+                  <option value="quiosque" <%= filtros.tipo_local === 'quiosque' ? 'selected' : '' %>>Quiosque</option>
+                  <option value="barracao" <%= filtros.tipo_local === 'barracao' ? 'selected' : '' %>>Barracão</option>
+                </select>
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-secondary me-2">Filtrar</button>
+                <a href="/admin/fila-espera" class="btn btn-outline-secondary">Limpar</a>
+              </div>
+            </form>
+          </div>
+        </div>
+        
+        <!-- Tabela -->
+        <div class="card">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Cliente</th>
+                    <th>Telefone</th>
+                    <th>Data de Interesse</th>
+                    <th>Tipo de Local</th>
+                    <th>Número</th>
+                    <th>Status</th>
+                    <th>Data de Criação</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (filaEspera.length === 0) { %>
+                    <tr>
+                      <td colspan="9" class="text-center">Nenhum item encontrado</td>
+                    </tr>
+                  <% } else { %>
+                    <% filaEspera.forEach(item => { %>
+                      <tr>
+                        <td><%= item.id %></td>
+                        <td><%= item.cliente_nome %></td>
+                        <td><%= item.cliente_telefone %></td>
+                        <td><%= new Date(item.data_interesse).toLocaleDateString('pt-BR') %></td>
+                        <td>
+                          <span class="badge bg-<%= item.tipo_local === 'quiosque' ? 'primary' : 'secondary' %>">
+                            <%= item.tipo_local %>
+                          </span>
+                        </td>
+                        <td><%= item.numero || '-' %></td>
+                        <td>
+                          <span class="badge bg-<%= 
+                            item.status === 'aguardando' ? 'warning' : 
+                            item.status === 'processado' ? 'success' : 'danger' 
+                          %>">
+                            <%= item.status %>
+                          </span>
+                        </td>
+                        <td><%= new Date(item.data_criacao).toLocaleDateString('pt-BR') %></td>
+                        <td>
+                          <a href="/admin/fila-espera/editar/<%= item.id %>" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i>
+                          </a>
+                          <button onclick="excluirItem(<%= item.id %>)" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    function excluirItem(id) {
+      if (confirm('Tem certeza que deseja excluir este item da fila?')) {
+        fetch(`/admin/fila-espera/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            location.reload();
+          } else {
+            alert('Erro ao excluir item');
+          }
+        })
+        .catch(error => {
+          console.error('Erro:', error);
+          alert('Erro ao excluir item');
+        });
+      }
+    }
+    
+    function processarFila() {
+      if (confirm('Deseja processar a fila de espera? Isso criará agendamentos automáticos para vagas disponíveis.')) {
+        fetch('/admin/fila-espera/processar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert(data.message);
+            location.reload();
+          } else {
+            alert('Erro ao processar fila');
+          }
+        })
+        .catch(error => {
+          console.error('Erro:', error);
+          alert('Erro ao processar fila');
+        });
+      }
+    }
+  </script>
+</body>
+</html>

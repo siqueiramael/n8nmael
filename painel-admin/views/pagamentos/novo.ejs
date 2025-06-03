@@ -1,0 +1,60 @@
+<%- include('../partials/header') %>
+<%- include('../partials/menu') %>
+
+<h2 class="mb-4">Novo Pagamento</h2>
+
+<form method="POST" action="/admin/pagamentos">
+  <div class="mb-3">
+    <label for="agendamento_id" class="form-label">Agendamento</label>
+    <select class="form-select" id="agendamento_id" name="agendamento_id" required>
+      <option value="">Selecione um agendamento</option>
+      <% agendamentos.forEach(agendamento => { %>
+        <option value="<%= agendamento.id %>" data-valor="<%= agendamento.valor %>">
+          <%= new Date(agendamento.data_agendamento).toLocaleDateString('pt-BR') %> - 
+          <%= agendamento.cliente_nome %> - 
+          <%= agendamento.local_info %> - 
+          R$ <%= agendamento.valor.toFixed(2).replace('.', ',') %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label for="valor" class="form-label">Valor (R$)</label>
+    <input type="number" step="0.01" class="form-control" id="valor" name="valor" required>
+  </div>
+  
+  <div class="mb-3">
+    <label for="status" class="form-label">Status</label>
+    <select class="form-select" id="status" name="status" required>
+      <option value="pendente">Pendente</option>
+      <option value="confirmado">Confirmado</option>
+      <option value="cancelado">Cancelado</option>
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label for="comprovante_url" class="form-label">URL do Comprovante</label>
+    <input type="text" class="form-control" id="comprovante_url" name="comprovante_url">
+  </div>
+  
+  <div class="d-flex justify-content-between">
+    <a href="/admin/pagamentos" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+<script>
+  // Preencher automaticamente o valor do pagamento com base no agendamento selecionado
+  document.getElementById('agendamento_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    if (selectedOption.value) {
+      const valor = selectedOption.getAttribute('data-valor');
+      document.getElementById('valor').value = valor;
+    } else {
+      document.getElementById('valor').value = '';
+    }
+  });
+</script>
+
+<%- include('../partials/footer') %>

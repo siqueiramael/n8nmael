@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('../partials/head') %>
+  <title>Logs de Interações - Painel Admin</title>
+</head>
+<body>
+  <%- include('../partials/menu') %>
+  
+  <!-- Breadcrumbs -->
+  <%- include('../partials/breadcrumbs', { 
+    breadcrumbs: [
+      { name: 'Dashboard', url: '/admin' },
+      { name: 'Logs de Interações', url: '/admin/logs-interacoes', active: true }
+    ]
+  }) %>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><i class="fas fa-history"></i> Logs de Interações</h2>
+          <div>
+            <span class="permission-badge" data-permission="logs-interacoes.relatorios">
+              <a href="/admin/logs-interacoes/relatorio" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-chart-bar"></i> Relatório
+              </a>
+            </span>
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+              <i class="fas fa-filter"></i> Filtros
+            </button>
+          </div>
+        </div>
+        
+        <div class="collapse mb-4" id="filtrosCollapse">
+          <div class="card card-body">
+            <form method="get" action="/admin/logs-interacoes">
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label for="cliente" class="form-label">Cliente</label>
+                  <input type="text" class="form-control" id="cliente" name="cliente" value="<%= filtros.cliente || '' %>">
+                </div>
+                <div class="col-md-3">
+                  <label for="tipo" class="form-label">Tipo</label>
+                  <select class="form-select" id="tipo" name="tipo">
+                    <option value="">Todos</option>
+                    <% tipos.forEach(t => { %>
+                      <option value="<%= t.tipo %>" <%= filtros.tipo === t.tipo ? 'selected' : '' %>><%= t.tipo %></option>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label for="dataInicio" class="form-label">Data Início</label>
+                  <input type="date" class="form-control" id="dataInicio" name="dataInicio" value="<%= filtros.dataInicio || '' %>">
+                </div>
+                <div class="col-md-3">
+                  <label for="dataFim" class="form-label">Data Fim</label>
+                  <input type="date" class="form-control" id="dataFim" name="dataFim" value="<%= filtros.dataFim || '' %>">
+                </div>
+                <div class="col-12 d-flex justify-content-end">
+                  <a href="/admin/logs-interacoes" class="btn btn-outline-secondary me-2">Limpar</a>
+                  <button type="submit" class="btn btn-primary">Filtrar</button>
+                  <% if (Object.values(filtros).some(f => f)) { %>
+                    <span class="permission-badge" data-permission="logs-interacoes.relatorios">
+                      <a href="/admin/logs-interacoes/exportar<%= Object.entries(filtros).filter(([_, v]) => v).map(([k, v], i) => `${i === 0 ? '?' : '&'}${k}=${v}`).join('') %>" class="btn btn-success ms-2">
+                        <i class="fas fa-download"></i> Exportar CSV
+                      </a>
+                    </span>
+                  <% } %>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Cliente</th>
+                    <th>Tipo</th>
+                    <th>Conteúdo</th>
+                    <th>Origem</th>
+                    <th>Destino</th>
+                    <th>Data</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (logs.length === 0) { %>
+                    <tr>
+                      <td colspan="8" class="text-center">Nenhum log encontrado</td>
+                    </tr>
+                  <% } %>
+                  <% logs.forEach(log => { %>
+                    <tr>
+                      <td><%= log.id %></td>
+                      <td><%= log.cliente_nome || '-' %></td>
+                      <td>
+                        <span class="badge <%= 
+                          log.tipo === 'voz' ? 'bg-primary' : 
+                          log.tipo === 'texto' ? 'bg-success' : 
+                          log.tipo === 'imagem' ? 'bg-info' : 
+                          log.tipo === 'sistema' ? 'bg-secondary' : 'bg-dark' 
+                        %>"><%= log.tipo %></span>
+                      </td>
+                      <td>
+                        <% if (log.conteudo && log.conteudo.length > 50) { %>
+                          <%= log.conteudo.substring(0, 50) %>...
+                        <% } else { %>
+                          <%= log.conteudo || '-' %>
+                        <% } %>
+                      </td>
+                      <td><%= log.origem || '-' %></td>
+                      <td><%= log.destino || '-' %></td>
+                      <td><%= new Date(log.data_registro).toLocaleString('pt-BR') %></td>
+                      <td>
+                        <a href="/admin/logs-interacoes/visualizar/<%= log.id %>" class="btn btn-sm btn-outline-primary">Visualizar</a>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+<%- include('../partials/footer') %>

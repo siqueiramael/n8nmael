@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('../partials/head') %>
+  <title>Editar Mídia - Painel Admin</title>
+</head>
+<body>
+  <%- include('../partials/menu') %>
+  
+  <!-- Breadcrumbs -->
+  <%- include('../partials/breadcrumbs', { 
+    breadcrumbs: [
+      { name: 'Dashboard', url: '/admin' },
+      { name: 'Mídias', url: '/admin/midias' },
+      { name: 'Editar Mídia', url: `/admin/midias/editar/${midia.id}`, active: true }
+    ]
+  }) %>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-md-8 offset-md-2">
+        <div class="permission-badge" data-permission="midias.editar">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-edit"></i> Editar Mídia</h2>
+            <a href="/admin/midias" class="btn btn-secondary">
+              <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+          </div>
+          
+          <div class="card">
+            <div class="card-body">
+              <form method="POST" action="/admin/midias/editar/<%= midia.id %>">
+                <div class="mb-3">
+                  <label for="tipo" class="form-label">Tipo *</label>
+                  <select class="form-select" id="tipo" name="tipo" required>
+                    <option value="imagem" <%= midia.tipo === 'imagem' ? 'selected' : '' %>>Imagem</option>
+                    <option value="video" <%= midia.tipo === 'video' ? 'selected' : '' %>>Vídeo</option>
+                    <option value="panorama" <%= midia.tipo === 'panorama' ? 'selected' : '' %>>Panorama</option>
+                  </select>
+                </div>
+                
+                <div class="mb-3">
+                  <label for="titulo" class="form-label">Título</label>
+                  <input type="text" class="form-control" id="titulo" name="titulo" value="<%= midia.titulo || '' %>" placeholder="Título da mídia">
+                </div>
+                
+                <div class="mb-3">
+                  <label for="descricao" class="form-label">Descrição</label>
+                  <textarea class="form-control" id="descricao" name="descricao" rows="3" placeholder="Descrição da mídia"><%= midia.descricao || '' %></textarea>
+                </div>
+                
+                <div class="mb-3">
+                  <label for="url" class="form-label">URL *</label>
+                  <input type="url" class="form-control" id="url" name="url" value="<%= midia.url %>" required placeholder="https://exemplo.com/midia.jpg">
+                  <% if (midia.url) { %>
+                    <div class="mt-2">
+                      <a href="<%= midia.url %>" target="_blank" class="btn btn-sm btn-outline-info">Visualizar mídia atual</a>
+                    </div>
+                  <% } %>
+                </div>
+                
+                <div class="mb-3">
+                  <label for="referencia_tipo" class="form-label">Tipo de Referência</label>
+                  <select class="form-select" id="referencia_tipo" name="referencia_tipo">
+                    <option value="" <%= !midia.referencia_tipo ? 'selected' : '' %>>Geral</option>
+                    <option value="quiosque" <%= midia.referencia_tipo === 'quiosque' ? 'selected' : '' %>>Quiosque</option>
+                    <option value="evento" <%= midia.referencia_tipo === 'evento' ? 'selected' : '' %>>Evento</option>
+                    <option value="promocao" <%= midia.referencia_tipo === 'promocao' ? 'selected' : '' %>>Promoção</option>
+                  </select>
+                </div>
+                
+                <div class="mb-3" id="quiosque_select" style="display: <%= midia.referencia_tipo === 'quiosque' ? 'block' : 'none' %>;">
+                  <label for="referencia_id" class="form-label">Quiosque</label>
+                  <select class="form-select" id="referencia_id" name="referencia_id">
+                    <option value="">Selecione um quiosque</option>
+                    <% quiosques.forEach(quiosque => { %>
+                      <option value="<%= quiosque.id %>" <%= midia.referencia_id == quiosque.id ? 'selected' : '' %>>Quiosque <%= quiosque.numero %></option>
+                    <% }); %>
+                  </select>
+                </div>
+                
+                <div class="d-flex gap-2">
+                  <a href="/admin/midias" class="btn btn-secondary">Cancelar</a>
+                  <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.getElementById('referencia_tipo').addEventListener('change', function() {
+      const quiosqueSelect = document.getElementById('quiosque_select');
+      if (this.value === 'quiosque') {
+        quiosqueSelect.style.display = 'block';
+        document.getElementById('referencia_id').required = true;
+      } else {
+        quiosqueSelect.style.display = 'none';
+        document.getElementById('referencia_id').required = false;
+        document.getElementById('referencia_id').value = '';
+      }
+    });
+  </script>
+</body>
+</html>

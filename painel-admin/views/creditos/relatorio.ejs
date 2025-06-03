@@ -1,0 +1,147 @@
+<%- include('../partials/header', { title: 'Relatório de Créditos' }) %>
+<%- include('../partials/breadcrumbs', { breadcrumbs: breadcrumbs }) %>
+<%- include('../partials/menu') %>
+
+<h2 class="mb-4">Relatório de Créditos</h2>
+
+<div class="card mb-4">
+  <div class="card-header">Filtros</div>
+  <div class="card-body">
+    <form method="GET" action="/admin/creditos/relatorio" class="row g-3">
+      <div class="col-md-3">
+        <label for="cliente_id" class="form-label">Cliente</label>
+        <select class="form-select" id="cliente_id" name="cliente_id">
+          <option value="">Todos</option>
+          <% clientes.forEach(cliente => { %>
+            <option value="<%= cliente.id %>" <%= filtros.cliente_id == cliente.id ? 'selected' : '' %>>
+              <%= cliente.nome %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="status" class="form-label">Status</label>
+        <select class="form-select" id="status" name="status">
+          <option value="">Todos</option>
+          <option value="ativo" <%= filtros.status === 'ativo' ? 'selected' : '' %>>Ativo</option>
+          <option value="utilizado" <%= filtros.status === 'utilizado' ? 'selected' : '' %>>Utilizado</option>
+          <option value="expirado" <%= filtros.status === 'expirado' ? 'selected' : '' %>>Expirado</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="data_inicio" class="form-label">Data Início</label>
+        <input type="date" class="form-control" id="data_inicio" name="data_inicio" 
+               value="<%= filtros.data_inicio || '' %>">
+      </div>
+      <div class="col-md-2">
+        <label for="data_fim" class="form-label">Data Fim</label>
+        <input type="date" class="form-control" id="data_fim" name="data_fim" 
+               value="<%= filtros.data_fim || '' %>">
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card text-white bg-success">
+      <div class="card-body">
+        <h5 class="card-title">Créditos Ativos</h5>
+        <h3><%= estatisticas.ativos %></h3>
+        <p class="card-text">R$ <%= estatisticas.valor_ativos.toFixed(2).replace('.', ',') %></p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-primary">
+      <div class="card-body">
+        <h5 class="card-title">Créditos Utilizados</h5>
+        <h3><%= estatisticas.utilizados %></h3>
+        <p class="card-text">R$ <%= estatisticas.valor_utilizados.toFixed(2).replace('.', ',') %></p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-danger">
+      <div class="card-body">
+        <h5 class="card-title">Créditos Expirados</h5>
+        <h3><%= estatisticas.expirados %></h3>
+        <p class="card-text">R$ <%= estatisticas.valor_expirados.toFixed(2).replace('.', ',') %></p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-info">
+      <div class="card-body">
+        <h5 class="card-title">Total Geral</h5>
+        <h3><%= estatisticas.total %></h3>
+        <p class="card-text">R$ <%= estatisticas.valor_total.toFixed(2).replace('.', ',') %></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Lista de Créditos</h5>
+    <button onclick="window.print()" class="btn btn-sm btn-outline-primary">Imprimir</button>
+  </div>
+  <div class="card-body">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Cliente</th>
+          <th>Valor</th>
+          <th>Status</th>
+          <th>Data Vencimento</th>
+          <th>Origem</th>
+          <th>Data Criação</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% creditos.forEach(credito => { %>
+          <tr>
+            <td><%= credito.id %></td>
+            <td><%= credito.cliente_nome %></td>
+            <td>R$ <%= credito.valor.toFixed(2).replace('.', ',') %></td>
+            <td>
+              <span class="badge <%= 
+                credito.status === 'ativo' ? 'bg-success' : 
+                credito.status === 'utilizado' ? 'bg-primary' : 
+                credito.status === 'expirado' ? 'bg-danger' : 'bg-secondary' 
+              %>"><%= credito.status %></span>
+            </td>
+            <td>
+              <% if (credito.data_vencimento) { %>
+                <%= new Date(credito.data_vencimento).toLocaleDateString('pt-BR') %>
+              <% } else { %>
+                -
+              <% } %>
+            </td>
+            <td>
+              <% if (credito.data_agendamento) { %>
+                Agendamento <%= credito.origem_agendamento_id %> (<%= new Date(credito.data_agendamento).toLocaleDateString('pt-BR') %>)
+              <% } else { %>
+                -
+              <% } %>
+            </td>
+            <td><%= new Date(credito.data_criacao).toLocaleDateString('pt-BR') %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    
+    <% if (creditos.length === 0) { %>
+      <div class="alert alert-info text-center">
+        <h5>Nenhum crédito encontrado</h5>
+        <p>Não há créditos que atendam aos filtros selecionados.</p>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

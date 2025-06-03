@@ -1,0 +1,53 @@
+<%- include('../partials/header', { title: 'Editar Crédito' }) %>
+<%- include('../partials/breadcrumbs', { breadcrumbs: breadcrumbs }) %>
+<%- include('../partials/menu') %>
+
+<h2 class="mb-4">Editar Crédito</h2>
+
+<div class="card mb-4">
+  <div class="card-header">Informações do Cliente</div>
+  <div class="card-body">
+    <p><strong>Cliente:</strong> <%= credito.cliente_nome %></p>
+    
+    <% if (agendamentoOrigem) { %>
+      <div class="mt-3">
+        <h5>Agendamento de Origem</h5>
+        <p>
+          <strong>Data:</strong> <%= new Date(agendamentoOrigem.data_agendamento).toLocaleDateString('pt-BR') %><br>
+          <strong>Local:</strong> <%= agendamentoOrigem.local_info %><br>
+          <strong>Valor Original:</strong> R$ <%= agendamentoOrigem.valor.toFixed(2).replace('.', ',') %>
+        </p>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<form method="POST" action="/admin/creditos/editar/<%= credito.id %>">
+  <div class="mb-3">
+    <label for="valor" class="form-label">Valor (R$)</label>
+    <input type="number" step="0.01" class="form-control" id="valor" name="valor" 
+           value="<%= credito.valor %>" required>
+  </div>
+  
+  <div class="mb-3">
+    <label for="data_vencimento" class="form-label">Data de Vencimento (opcional)</label>
+    <input type="date" class="form-control" id="data_vencimento" name="data_vencimento" 
+           value="<%= credito.data_vencimento ? credito.data_vencimento.toISOString().split('T')[0] : '' %>">
+  </div>
+  
+  <div class="mb-3">
+    <label for="status" class="form-label">Status</label>
+    <select class="form-select" id="status" name="status" required>
+      <option value="ativo" <%= credito.status === 'ativo' ? 'selected' : '' %>>Ativo</option>
+      <option value="utilizado" <%= credito.status === 'utilizado' ? 'selected' : '' %>>Utilizado</option>
+      <option value="expirado" <%= credito.status === 'expirado' ? 'selected' : '' %>>Expirado</option>
+    </select>
+  </div>
+  
+  <div class="d-flex justify-content-between">
+    <a href="/admin/creditos" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+<%- include('../partials/footer') %>

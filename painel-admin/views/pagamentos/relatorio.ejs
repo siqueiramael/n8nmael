@@ -1,0 +1,102 @@
+<%- include('../partials/header') %>
+<%- include('../partials/menu') %>
+
+<h2 class="mb-4">Relatório Financeiro</h2>
+
+<div class="card mb-4">
+  <div class="card-header">Filtros</div>
+  <div class="card-body">
+    <form method="GET" action="/admin/pagamentos/relatorio" class="row g-3">
+      <div class="col-md-3">
+        <label for="data_inicio" class="form-label">Data Início</label>
+        <input type="date" class="form-control" id="data_inicio" name="data_inicio" 
+               value="<%= filtros.data_inicio || '' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="data_fim" class="form-label">Data Fim</label>
+        <input type="date" class="form-control" id="data_fim" name="data_fim" 
+               value="<%= filtros.data_fim || '' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="status" class="form-label">Status</label>
+        <select class="form-select" id="status" name="status">
+          <option value="">Todos</option>
+          <option value="confirmado" <%= filtros.status === 'confirmado' ? 'selected' : '' %>>Confirmado</option>
+          <option value="pendente" <%= filtros.status === 'pendente' ? 'selected' : '' %>>Pendente</option>
+          <option value="cancelado" <%= filtros.status === 'cancelado' ? 'selected' : '' %>>Cancelado</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card text-white bg-success">
+      <div class="card-body">
+        <h5 class="card-title">Total Confirmado</h5>
+        <p class="card-text fs-4">R$ <%= totais.confirmado.toFixed(2).replace('.', ',') %></p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-white bg-warning">
+      <div class="card-body">
+        <h5 class="card-title">Total Pendente</h5>
+        <p class="card-text fs-4">R$ <%= totais.pendente.toFixed(2).replace('.', ',') %></p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-white bg-primary">
+      <div class="card-body">
+        <h5 class="card-title">Total Geral</h5>
+        <p class="card-text fs-4">R$ <%= totais.valor.toFixed(2).replace('.', ',') %></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Cliente</th>
+      <th>Local</th>
+      <th>Data Agendamento</th>
+      <th>Valor</th>
+      <th>Status</th>
+      <th>Data Pagamento</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% pagamentos.forEach(pagamento => { %>
+      <tr>
+        <td><%= pagamento.id %></td>
+        <td><%= pagamento.cliente_nome %></td>
+        <td><%= pagamento.local_info %></td>
+        <td><%= new Date(pagamento.data_agendamento).toLocaleDateString('pt-BR') %></td>
+        <td>R$ <%= pagamento.valor.toFixed(2).replace('.', ',') %></td>
+        <td>
+          <span class="badge <%= 
+            pagamento.status === 'confirmado' ? 'bg-success' : 
+            pagamento.status === 'pendente' ? 'bg-warning' : 
+            pagamento.status === 'cancelado' ? 'bg-danger' : 'bg-secondary' 
+          %>"><%= pagamento.status %></span>
+        </td>
+        <td>
+          <% if (pagamento.data_pagamento) { %>
+            <%= new Date(pagamento.data_pagamento).toLocaleDateString('pt-BR') %>
+          <% } else { %>
+            -
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('../partials/footer') %>

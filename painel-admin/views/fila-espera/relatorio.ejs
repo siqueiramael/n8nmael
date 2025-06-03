@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <%- include('../partials/head') %>
+  <title>Relatório - Fila de Espera</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <%- include('../partials/menu') %>
+  
+  <!-- Breadcrumbs -->
+  <%- include('../partials/breadcrumbs', { 
+    breadcrumbs: [
+      { name: 'Dashboard', url: '/admin' },
+      { name: 'Fila de Espera', url: '/admin/fila-espera' },
+      { name: 'Relatório', url: '/admin/fila-espera/relatorio', active: true }
+    ]
+  }) %>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-12">
+        <div class="permission-badge" data-permission="fila-espera.relatorios">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-chart-bar"></i> Relatório da Fila de Espera</h2>
+            <a href="/admin/fila-espera" class="btn btn-secondary">
+              <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+          </div>
+          
+          <!-- Estatísticas Gerais -->
+          <div class="row mb-4">
+            <div class="col-md-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <h5 class="card-title">Total</h5>
+                  <h2 class="text-primary"><%= stats.total %></h2>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <h5 class="card-title">Aguardando</h5>
+                  <h2 class="text-warning"><%= stats.aguardando %></h2>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <h5 class="card-title">Processados</h5>
+                  <h2 class="text-success"><%= stats.processado %></h2>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <h5 class="card-title">Cancelados</h5>
+                  <h2 class="text-danger"><%= stats.cancelado %></h2>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <!-- Gráfico de Distribuição por Tipo -->
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5>Distribuição por Tipo de Local (Aguardando)</h5>
+                </div>
+                <div class="card-body">
+                  <canvas id="tipoLocalChart"></canvas>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Itens Mais Antigos -->
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5>Itens Mais Antigos (Aguardando)</h5>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr>
+                          <th>Cliente</th>
+                          <th>Data Interesse</th>
+                          <th>Dias Aguardando</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% if (itensAntigos.length === 0) { %>
+                          <tr>
+                            <td colspan="3" class="text-center">Nenhum item aguardando</td>
+                          </tr>
+                        <% } else { %>
+                          <% itensAntigos.forEach(item => { %>
+                            <tr>
+                              <td><%= item.cliente_nome %></td>
+                              <td><%= new Date(item.data_interesse).toLocaleDateString('pt-BR') %></td>
+                              <td>
+                                <% const diasAguardando = Math.floor((new Date() - new Date(item.data_criacao)) / (1000 * 60 * 60 * 24)); %>
+                                <%= diasAguardando %> dias
+                              </td>
+                            </tr>
+                          <% }) %>
+                        <% } %>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Gráfico de distribuição por tipo de local
+    const tipoLocalData = <%- JSON.stringify(distribuicaoTipoLocal) %>;
+    
+    const ctx = document.getElementById('tipoLocalChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: tipoLocalData.map(item => item.tipo_local || 'Qualquer'),
+        datasets: [{
+          data: tipoLocalData.map(item => item.quantidade),
+          backgroundColor: [
+            '#007bff',
+            '#6c757d',
+            '#28a745',
+            '#ffc107',
+            '#dc3545'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom'
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

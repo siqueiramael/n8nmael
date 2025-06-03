@@ -1,0 +1,46 @@
+<%- include('../partials/header', { title: 'Editar Agendamento' }) %>
+<%- include('../partials/menu') %>
+
+<div class="container-fluid main-content">
+  <!-- Breadcrumbs -->
+  <% 
+    const breadcrumbs = [
+      { title: 'Operacional', icon: 'fas fa-calendar-alt', url: '#' },
+      { title: 'Agendamentos', icon: 'fas fa-calendar-check', url: '/admin/agendamentos' },
+      { title: 'Editar Agendamento', icon: 'fas fa-edit' }
+    ];
+  %>
+  <%- include('../partials/breadcrumbs', { breadcrumbs }) %>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h4>
+            <i class="fas fa-edit"></i> Editar Agendamento #<%= agendamento.id %>
+            <span class="permission-badge badge bg-warning ms-2" data-permission="agendamentos_editar">
+              <i class="fas fa-edit"></i> Edição
+            </span>
+          </h4>
+        </div>
+        <div class="card-body">
+          <!-- Formulário de edição -->
+          <form method="POST" action="/admin/agendamentos/<%= agendamento.id %>?_method=PUT">
+            <!-- Campos preenchidos com dados existentes -->
+            
+            <div class="d-flex justify-content-between">
+              <a href="/admin/agendamentos" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar
+              </a>
+              <button type="submit" class="btn btn-primary" data-permission="agendamentos_editar">
+                <i class="fas fa-save"></i> Atualizar Agendamento
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

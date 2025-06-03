@@ -1,0 +1,38 @@
+<%- include('../partials/header') %>
+<%- include('../partials/menu') %>
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="/admin/quiosques">Quiosques</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Novo Quiosque</li>
+  </ol>
+</nav>
+
+<h2 class="mb-4">Novo Quiosque</h2>
+
+<form method="POST" action="/admin/quiosques" class="permission-badge" data-permission="quiosques.create">
+  <div class="mb-3">
+    <label for="numero" class="form-label">Número</label>
+    <input type="number" class="form-control" id="numero" name="numero" required>
+  </div>
+  
+  <div class="mb-3">
+    <label for="descricao" class="form-label">Descrição</label>
+    <textarea class="form-control" id="descricao" name="descricao" rows="3"></textarea>
+  </div>
+  
+  <div class="mb-3">
+    <label for="posicao" class="form-label">Posição</label>
+    <input type="text" class="form-control" id="posicao" name="posicao">
+    <div class="form-text">Ex: Próximo à entrada, Área central, etc.</div>
+  </div>
+  
+  <div class="d-flex justify-content-between">
+    <a href="/admin/quiosques" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+<%- include('../partials/footer') %>

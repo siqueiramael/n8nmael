@@ -1,0 +1,126 @@
+<%- include('../partials/header', { title: 'Editar Solicitação - Fila de Atendimento' }) %>
+<%- include('../partials/breadcrumbs', { breadcrumbs: breadcrumbs }) %>
+<%- include('../partials/menu') %>
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-edit"></i> Editar Solicitação #<%= atendimento.id %></h2>
+                <a href="/admin/fila-atendimento" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </a>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <form method="POST" action="/admin/fila-atendimento/editar/<%= atendimento.id %>">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="cliente_telefone" class="form-label">Telefone do Cliente *</label>
+                                            <input type="tel" class="form-control" id="cliente_telefone" name="cliente_telefone" value="<%= atendimento.cliente_telefone %>" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="cliente_nome" class="form-label">Nome do Cliente</label>
+                                            <input type="text" class="form-control" id="cliente_nome" name="cliente_nome" value="<%= atendimento.cliente_nome || '' %>">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="status" class="form-label">Status</label>
+                                    <select class="form-select" id="status" name="status" required>
+                                        <option value="pendente" <%= atendimento.status === 'pendente' ? 'selected' : '' %>>Pendente</option>
+                                        <option value="em_atendimento" <%= atendimento.status === 'em_atendimento' ? 'selected' : '' %>>Em Atendimento</option>
+                                        <option value="finalizado" <%= atendimento.status === 'finalizado' ? 'selected' : '' %>>Finalizado</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="contexto_conversa" class="form-label">Contexto da Conversa/Problema</label>
+                                    <textarea class="form-control" id="contexto_conversa" name="contexto_conversa" rows="4"><%= atendimento.contexto_conversa || '' %></textarea>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="prioridade" class="form-label">Prioridade</label>
+                                            <select class="form-select" id="prioridade" name="prioridade">
+                                                <option value="normal" <%= atendimento.prioridade === 'normal' ? 'selected' : '' %>>Normal</option>
+                                                <option value="alta" <%= atendimento.prioridade === 'alta' ? 'selected' : '' %>>Alta</option>
+                                                <option value="urgente" <%= atendimento.prioridade === 'urgente' ? 'selected' : '' %>>Urgente</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="canal_origem" class="form-label">Canal de Origem</label>
+                                            <select class="form-select" id="canal_origem" name="canal_origem">
+                                                <option value="whatsapp" <%= atendimento.canal_origem === 'whatsapp' ? 'selected' : '' %>>WhatsApp</option>
+                                                <option value="telefone" <%= atendimento.canal_origem === 'telefone' ? 'selected' : '' %>>Telefone</option>
+                                                <option value="email" <%= atendimento.canal_origem === 'email' ? 'selected' : '' %>>E-mail</option>
+                                                <option value="presencial" <%= atendimento.canal_origem === 'presencial' ? 'selected' : '' %>>Presencial</option>
+                                                <option value="site" <%= atendimento.canal_origem === 'site' ? 'selected' : '' %>>Site</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="observacoes_atendimento" class="form-label">Observações do Atendimento</label>
+                                    <textarea class="form-control" id="observacoes_atendimento" name="observacoes_atendimento" rows="3"><%= atendimento.observacoes_atendimento || '' %></textarea>
+                                    <div class="form-text">Anotações feitas durante o atendimento</div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end">
+                                    <a href="/admin/fila-atendimento" class="btn btn-secondary me-2">Cancelar</a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Salvar Alterações
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Informações da Solicitação</h6>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>ID:</strong> <%= atendimento.id %></p>
+                            <p><strong>Data Criação:</strong><br><%= new Date(atendimento.data_criacao).toLocaleString('pt-BR') %></p>
+                            <% if (atendimento.data_inicio_atendimento) { %>
+                                <p><strong>Início Atendimento:</strong><br><%= new Date(atendimento.data_inicio_atendimento).toLocaleString('pt-BR') %></p>
+                            <% } %>
+                            <% if (atendimento.data_finalizacao) { %>
+                                <p><strong>Finalização:</strong><br><%= new Date(atendimento.data_finalizacao).toLocaleString('pt-BR') %></p>
+                            <% } %>
+                            
+                            <% if (atendimento.status !== 'finalizado') { %>
+                                <% const agora = new Date(); %>
+                                <% const criacao = new Date(atendimento.data_criacao); %>
+                                <% const diffMinutos = Math.floor((agora - criacao) / (1000 * 60)); %>
+                                <p><strong>Tempo de Espera:</strong><br>
+                                <% if (diffMinutos < 60) { %>
+                                    <%= diffMinutos %> minutos
+                                <% } else { %>
+                                    <%= Math.floor(diffMinutos / 60) %>h <%= diffMinutos % 60 %>min
+                                <% } %>
+                                </p>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

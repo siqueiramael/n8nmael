@@ -1,0 +1,35 @@
+<%- include('../partials/header') %>
+<%- include('../partials/menu') %>
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Erro 403 - Acesso Negado</li>
+  </ol>
+</nav>
+
+<div class="container-fluid main-content">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="access-denied permission-badge" data-permission="error.view">
+        <i class="fas fa-shield-alt fa-4x mb-4 text-danger"></i>
+        <h2>Acesso Negado</h2>
+        <p class="lead"><%= message || 'Você não tem permissão para acessar esta página.' %></p>
+        <% if (typeof requiredPermission !== 'undefined') { %>
+          <p>Permissão necessária: <code class="bg-light p-2 rounded"><%= requiredPermission %></code></p>
+        <% } %>
+        <div class="mt-4">
+          <a href="/admin" class="btn btn-primary me-2">
+            <i class="fas fa-home"></i> Voltar ao Início
+          </a>
+          <button onclick="history.back()" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

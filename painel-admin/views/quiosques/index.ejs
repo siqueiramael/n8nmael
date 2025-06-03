@@ -1,0 +1,44 @@
+<%- include('../partials/header') %>
+<%- include('../partials/menu') %>
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Quiosques</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Gerenciamento de Quiosques</h2>
+  <a href="/admin/quiosques/novo" class="btn btn-primary permission-badge" data-permission="quiosques.create">Novo Quiosque</a>
+</div>
+
+<table class="table table-striped permission-badge" data-permission="quiosques.view">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Número</th>
+      <th>Descrição</th>
+      <th>Posição</th>
+      <th>Data Cadastro</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% quiosques.forEach(quiosque => { %>
+      <tr>
+        <td><%= quiosque.id %></td>
+        <td><%= quiosque.numero %></td>
+        <td><%= quiosque.descricao || '-' %></td>
+        <td><%= quiosque.posicao || '-' %></td>
+        <td><%= new Date(quiosque.data_cadastro).toLocaleDateString('pt-BR') %></td>
+        <td>
+          <a href="/admin/quiosques/editar/<%= quiosque.id %>" class="btn btn-sm btn-outline-primary permission-badge" data-permission="quiosques.edit">Editar</a>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('../partials/footer') %>

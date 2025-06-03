@@ -1,0 +1,107 @@
+<%- include('../partials/header', { title: 'Editar Campanha' }) %>
+<%- include('../partials/menu') %>
+
+<div class="container-fluid main-content">
+  <!-- Breadcrumbs -->
+  <% 
+    const breadcrumbs = [
+      { title: 'Marketing', icon: 'fas fa-bullhorn', url: '#' },
+      { title: 'Campanhas', icon: 'fas fa-campaign', url: '/admin/campanhas' },
+      { title: 'Editar Campanha', icon: 'fas fa-edit' }
+    ];
+  %>
+  <%- include('../partials/breadcrumbs', { breadcrumbs }) %>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h4>
+            <i class="fas fa-edit"></i> Editar Campanha: <%= campanha.nome %>
+            <span class="permission-badge badge bg-warning ms-2" data-permission="campanhas_editar">
+              <i class="fas fa-edit"></i> Edição
+            </span>
+          </h4>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="/admin/campanhas/<%= campanha.id %>?_method=PUT">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="nome" class="form-label">Nome da Campanha</label>
+                  <input type="text" class="form-control" id="nome" name="nome" value="<%= campanha.nome %>" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="tipo" class="form-label">Tipo</label>
+                  <select class="form-select" id="tipo" name="tipo" required>
+                    <option value="email" <%= campanha.tipo === 'email' ? 'selected' : '' %>>E-mail Marketing</option>
+                    <option value="whatsapp" <%= campanha.tipo === 'whatsapp' ? 'selected' : '' %>>WhatsApp</option>
+                    <option value="sms" <%= campanha.tipo === 'sms' ? 'selected' : '' %>>SMS</option>
+                    <option value="social" <%= campanha.tipo === 'social' ? 'selected' : '' %>>Redes Sociais</option>
+                    <option value="promocional" <%= campanha.tipo === 'promocional' ? 'selected' : '' %>>Promocional</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="data_inicio" class="form-label">Data de Início</label>
+                  <input type="date" class="form-control" id="data_inicio" name="data_inicio" 
+                         value="<%= campanha.data_inicio ? campanha.data_inicio.toISOString().split('T')[0] : '' %>">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="data_fim" class="form-label">Data de Fim</label>
+                  <input type="date" class="form-control" id="data_fim" name="data_fim" 
+                         value="<%= campanha.data_fim ? campanha.data_fim.toISOString().split('T')[0] : '' %>">
+                </div>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="orcamento" class="form-label">Orçamento</label>
+                  <input type="number" step="0.01" class="form-control" id="orcamento" name="orcamento" 
+                         value="<%= campanha.orcamento || '' %>">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="status" class="form-label">Status</label>
+                  <select class="form-select" id="status" name="status" required>
+                    <option value="rascunho" <%= campanha.status === 'rascunho' ? 'selected' : '' %>>Rascunho</option>
+                    <option value="ativa" <%= campanha.status === 'ativa' ? 'selected' : '' %>>Ativa</option>
+                    <option value="pausada" <%= campanha.status === 'pausada' ? 'selected' : '' %>>Pausada</option>
+                    <option value="finalizada" <%= campanha.status === 'finalizada' ? 'selected' : '' %>>Finalizada</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="descricao" class="form-label">Descrição</label>
+              <textarea class="form-control" id="descricao" name="descricao" rows="4"><%= campanha.descricao || '' %></textarea>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+              <a href="/admin/campanhas" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar
+              </a>
+              <button type="submit" class="btn btn-primary" data-permission="campanhas_editar">
+                <i class="fas fa-save"></i> Atualizar Campanha
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

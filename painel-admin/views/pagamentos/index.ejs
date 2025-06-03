@@ -1,0 +1,79 @@
+<%- include('../partials/header', { title: 'Pagamentos' }) %>
+<%- include('../partials/menu') %>
+
+<div class="container-fluid main-content">
+  <!-- Breadcrumbs -->
+  <% 
+    const breadcrumbs = [
+      { title: 'Financeiro', icon: 'fas fa-dollar-sign', url: '#' },
+      { title: 'Pagamentos', icon: 'fas fa-credit-card' }
+    ];
+  %>
+  <%- include('../partials/breadcrumbs', { breadcrumbs }) %>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+          <i class="fas fa-credit-card"></i> Gerenciamento de Pagamentos
+          <span class="permission-badge badge bg-info ms-2" data-permission="pagamentos_visualizar">
+            <i class="fas fa-eye"></i> Visualização
+          </span>
+        </h2>
+        <div>
+          <a href="/admin/pagamentos/relatorio" class="btn btn-outline-secondary me-2" data-permission="pagamentos_relatorios">
+            <i class="fas fa-chart-bar"></i> Relatório Financeiro
+          </a>
+          <a href="/admin/pagamentos/novo" class="btn btn-primary" data-permission="pagamentos_criar">
+            <i class="fas fa-plus"></i> Novo Pagamento
+          </a>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover">
+              <thead class="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Cliente</th>
+                  <th>Local</th>
+                  <th>Data Agendamento</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Data Pagamento</th>
+                  <th data-permission="pagamentos_editar">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% pagamentos.forEach(pagamento => { %>
+                  <tr>
+                    <td><%= pagamento.id %></td>
+                    <td><%= pagamento.cliente_nome %></td>
+                    <td><%= pagamento.local_info %></td>
+                    <td><%= new Date(pagamento.data_agendamento).toLocaleDateString('pt-BR') %></td>
+                    <td>R$ <%= parseFloat(pagamento.valor || 0).toFixed(2) %></td>
+                    <td>
+                      <span class="badge bg-<%= pagamento.status === 'pago' ? 'success' : pagamento.status === 'pendente' ? 'warning' : 'danger' %>">
+                        <%= pagamento.status %>
+                      </span>
+                    </td>
+                    <td><%= pagamento.data_pagamento ? new Date(pagamento.data_pagamento).toLocaleDateString('pt-BR') : '-' %></td>
+                    <td data-permission="pagamentos_editar">
+                      <a href="/admin/pagamentos/editar/<%= pagamento.id %>" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-edit"></i>
+                      </a>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

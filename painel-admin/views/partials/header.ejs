@@ -3,8 +3,155 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel Administrativo</title>
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' - ' : '' %>Painel Administrativo</title>
+  
+  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Custom CSS -->
+  <style>
+    :root {
+      --primary-color: #0d6efd;
+      --secondary-color: #6c757d;
+      --success-color: #198754;
+      --warning-color: #ffc107;
+      --danger-color: #dc3545;
+    }
+    
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .main-content {
+      min-height: calc(100vh - 120px);
+      padding: 20px 0;
+    }
+    
+    .card {
+      border: none;
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+      border-radius: 0.5rem;
+    }
+    
+    .btn {
+      border-radius: 0.375rem;
+      font-weight: 500;
+    }
+    
+    .table {
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+    
+    .navbar-brand {
+      font-weight: 600;
+      font-size: 1.25rem;
+    }
+    
+    .permission-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+    
+    .restricted-content {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    
+    .access-denied {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border: 2px dashed #dee2e6;
+      border-radius: 0.5rem;
+      padding: 2rem;
+      text-align: center;
+      color: #6c757d;
+    }
+  </style>
+  
+  <!-- Permissions System -->
+  <script>
+    // Sistema de permissões global
+    window.userPermissions = {
+      // Definir permissões do usuário atual (normalmente vem do backend)
+      user: {
+        id: 1,
+        name: 'Admin',
+        role: 'admin',
+        permissions: [
+          'view_all', 'edit_all', 'delete_all',
+          'view_clientes', 'edit_clientes', 'delete_clientes',
+          'view_agendamentos', 'edit_agendamentos', 'delete_agendamentos',
+          'view_pagamentos', 'edit_pagamentos',
+          'view_creditos', 'edit_creditos',
+          'view_infraestrutura', 'edit_infraestrutura',
+          'view_midias', 'edit_midias',
+          'view_campanhas', 'edit_campanhas',
+          'view_fila_atendimento', 'edit_fila_atendimento',
+          'view_fila_espera', 'edit_fila_espera',
+          'view_logs', 'view_reports'
+        ]
+      },
+      
+      // Verificar se usuário tem permissão
+      hasPermission: function(permission) {
+        return this.user.permissions.includes(permission) || this.user.permissions.includes('view_all');
+      },
+      
+      // Verificar múltiplas permissões
+      hasAnyPermission: function(permissions) {
+        return permissions.some(permission => this.hasPermission(permission));
+      },
+      
+      // Aplicar restrições visuais
+      applyRestrictions: function() {
+        document.querySelectorAll('[data-permission]').forEach(element => {
+          const requiredPermission = element.getAttribute('data-permission');
+          if (!this.hasPermission(requiredPermission)) {
+            element.classList.add('restricted-content');
+            element.title = 'Você não tem permissão para acessar esta funcionalidade';
+          }
+        });
+        
+        document.querySelectorAll('[data-permissions]').forEach(element => {
+          const requiredPermissions = element.getAttribute('data-permissions').split(',');
+          if (!this.hasAnyPermission(requiredPermissions)) {
+            element.style.display = 'none';
+          }
+        });
+      }
+    };
+    
+    // Aplicar restrições quando a página carregar
+    document.addEventListener('DOMContentLoaded', function() {
+      window.userPermissions.applyRestrictions();
+      
+      // Atualizar nome do usuário no menu
+      const userElement = document.getElementById('currentUser');
+      if (userElement) {
+        userElement.textContent = window.userPermissions.user.name;
+      }
+    });
+    
+    // Funções do menu de usuário
+    function showUserProfile() {
+      alert('Funcionalidade de perfil em desenvolvimento');
+    }
+    
+    function showPermissions() {
+      const permissions = window.userPermissions.user.permissions;
+      alert('Suas permissões:\n' + permissions.join('\n'));
+    }
+    
+    function logout() {
+      if (confirm('Deseja realmente sair do sistema?')) {
+        window.location.href = '/admin/logout';
+      }
+    }
+  </script>
 </head>
 <body>
 <div class="container py-4">

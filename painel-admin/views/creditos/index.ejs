@@ -1,0 +1,69 @@
+<%- include('../partials/header', { title: 'Gerenciamento de Créditos' }) %>
+<%- include('../partials/breadcrumbs', { breadcrumbs: breadcrumbs }) %>
+<%- include('../partials/menu') %>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Gerenciamento de Créditos</h2>
+  <div>
+    <a href="/admin/creditos/relatorio" class="btn btn-outline-secondary me-2 permission-badge" data-permission="creditos.relatorios">Relatório de Créditos</a>
+    <a href="/admin/creditos/novo" class="btn btn-primary permission-badge" data-permission="creditos.criar">Novo Crédito</a>
+  </div>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Cliente</th>
+      <th>Valor</th>
+      <th>Status</th>
+      <th>Data Vencimento</th>
+      <th>Origem</th>
+      <th>Data Criação</th>
+      <th class="permission-badge" data-permission="creditos.editar">Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% creditos.forEach(credito => { %>
+      <tr>
+        <td><%= credito.id %></td>
+        <td><%= credito.cliente_nome %></td>
+        <td>R$ <%= credito.valor.toFixed(2).replace('.', ',') %></td>
+        <td>
+          <span class="badge <%= 
+            credito.status === 'ativo' ? 'bg-success' : 
+            credito.status === 'utilizado' ? 'bg-primary' : 
+            credito.status === 'expirado' ? 'bg-danger' : 'bg-secondary' 
+          %>"><%= credito.status %></span>
+        </td>
+        <td>
+          <% if (credito.data_vencimento) { %>
+            <%= new Date(credito.data_vencimento).toLocaleDateString('pt-BR') %>
+          <% } else { %>
+            -
+          <% } %>
+        </td>
+        <td>
+          <% if (credito.data_agendamento) { %>
+            Agendamento <%= credito.origem_agendamento_id %> (<%= new Date(credito.data_agendamento).toLocaleDateString('pt-BR') %>)
+          <% } else { %>
+            -
+          <% } %>
+        </td>
+        <td><%= new Date(credito.data_criacao).toLocaleDateString('pt-BR') %></td>
+        <td class="permission-badge" data-permission="creditos.editar">
+          <a href="/admin/creditos/editar/<%= credito.id %>" class="btn btn-sm btn-outline-primary">Editar</a>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<% if (creditos.length === 0) { %>
+  <div class="alert alert-info text-center">
+    <h5>Nenhum crédito encontrado</h5>
+    <p>Não há créditos cadastrados no sistema.</p>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

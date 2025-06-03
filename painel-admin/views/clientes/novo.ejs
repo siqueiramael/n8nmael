@@ -1,9 +1,18 @@
 <%- include('../partials/header') %>
 <%- include('../partials/menu') %>
 
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="/admin/clientes">Clientes</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Novo Cliente</li>
+  </ol>
+</nav>
+
 <h2 class="mb-4">Novo Cliente</h2>
 
-<form method="POST" action="/admin/clientes">
+<form method="POST" action="/admin/clientes" class="permission-badge" data-permission="clientes.create">
   <div class="mb-3">
     <label for="nome" class="form-label">Nome</label>
     <input type="text" class="form-control" id="nome" name="nome" required>

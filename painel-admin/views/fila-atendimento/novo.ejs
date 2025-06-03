@@ -1,0 +1,79 @@
+<%- include('../partials/header', { title: 'Nova Solicitação - Fila de Atendimento' }) %>
+<%- include('../partials/breadcrumbs', { breadcrumbs: breadcrumbs }) %>
+<%- include('../partials/menu') %>
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-plus"></i> Nova Solicitação de Atendimento</h2>
+                <a href="/admin/fila-atendimento" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </a>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" action="/admin/fila-atendimento/novo">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="cliente_telefone" class="form-label">Telefone do Cliente *</label>
+                                    <input type="tel" class="form-control" id="cliente_telefone" name="cliente_telefone" required>
+                                    <div class="form-text">Formato: (11) 99999-9999</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="cliente_nome" class="form-label">Nome do Cliente</label>
+                                    <input type="text" class="form-control" id="cliente_nome" name="cliente_nome">
+                                    <div class="form-text">Opcional - pode ser preenchido durante o atendimento</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="contexto_conversa" class="form-label">Contexto da Conversa/Problema</label>
+                            <textarea class="form-control" id="contexto_conversa" name="contexto_conversa" rows="4" placeholder="Descreva o motivo da solicitação de atendimento..."></textarea>
+                            <div class="form-text">Informações que podem ajudar no atendimento</div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="prioridade" class="form-label">Prioridade</label>
+                                    <select class="form-select" id="prioridade" name="prioridade">
+                                        <option value="normal">Normal</option>
+                                        <option value="alta">Alta</option>
+                                        <option value="urgente">Urgente</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="canal_origem" class="form-label">Canal de Origem</label>
+                                    <select class="form-select" id="canal_origem" name="canal_origem">
+                                        <option value="whatsapp">WhatsApp</option>
+                                        <option value="telefone">Telefone</option>
+                                        <option value="email">E-mail</option>
+                                        <option value="presencial">Presencial</option>
+                                        <option value="site">Site</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end">
+                            <a href="/admin/fila-atendimento" class="btn btn-secondary me-2">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Criar Solicitação
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>
