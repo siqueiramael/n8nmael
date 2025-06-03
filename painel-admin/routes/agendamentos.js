@@ -1,29 +1,70 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
+import { CacheManager } from '../db/redis.js';
 
 const router = express.Router();
 
-// Listar todos os agendamentos
+// Listar todos os agendamentos com cache
 router.get('/', 
   checkPermission('view_agendamentos'),
   addBreadcrumb([{ title: 'Operacional', icon: 'fas fa-cogs' }, { title: 'Agendamentos', icon: 'fas fa-calendar' }]),
   async (req, res) => {
     try {
-      const result = await pool.query(`
-        SELECT a.*, c.nome as cliente_nome, q.numero as quiosque_numero 
-        FROM agendamentos a
-        LEFT JOIN clientes c ON a.cliente_id = c.id
-        LEFT JOIN quiosques q ON a.quiosque_id = q.id
-        ORDER BY a.data_agendamento DESC
-      `);
+      // Chave de cache baseada nos filtros
+      const cacheKey = `agendamentos_list_${JSON.stringify(req.query)}`;
+      
+      // Tentar recuperar do cache
+      let agendamentos = await CacheManager.getCache(cacheKey);
+      
+      if (!agendamentos) {
+        // Se não estiver em cache, buscar no banco
+        const result = await pool.query(`
+          SELECT a.*, c.nome as cliente_nome, q.numero as quiosque_numero 
+          FROM agendamentos a
+          LEFT JOIN clientes c ON a.cliente_id = c.id
+          LEFT JOIN quiosques q ON a.quiosque_id = q.id
+          ORDER BY a.data_agendamento DESC
+        `);
+        
+        agendamentos = result.rows;
+        
+        // Salvar no cache por 5 minutos
+        await CacheManager.setCache(cacheKey, agendamentos, 300);
+        console.log(`💾 Agendamentos salvos no cache: ${cacheKey}`);
+      } else {
+        console.log(`⚡ Agendamentos recuperados do cache: ${cacheKey}`);
+      }
+      
       res.render('agendamentos/index', { 
-        agendamentos: result.rows,
+        agendamentos,
         activeMenu: 'agendamentos'
       });
     } catch (error) {
       console.error('Erro ao buscar agendamentos:', error);
       res.status(500).send('Erro ao buscar dados');
+    }
+  }
+);
+
+// Criar agendamento com invalidação de cache
+router.post('/', 
+  checkPermission('edit_agendamentos'),
+  invalidateCache(['agendamentos_*', 'dashboard_*']),
+  async (req, res) => {
+    const { cliente_id, quiosque_id, tipo_local, numero, data_agendamento, valor, status } = req.body;
+    try {
+      await pool.query(
+        `INSERT INTO agendamentos (cliente_id, quiosque_id, tipo_local, numero, data_agendamento, valor, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [cliente_id, quiosque_id || null, tipo_local, numero || null, data_agendamento, valor, status || 'pendente']
+      );
+      
+      res.redirect('/admin/agendamentos');
+    } catch (error) {
+      console.error('Erro ao inserir agendamento:', error);
+      res.status(500).send('Erro ao salvar dados');
     }
   }
 );

@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,51 +9,53 @@ const router = express.Router();
 router.get('/', 
   checkPermission('fila_espera_visualizar'),
   addBreadcrumb('Fila de Espera', '/admin/fila-espera'),
+  cacheMiddleware((req) => `fila_espera_list_${JSON.stringify(req.query)}`, 300),
   async (req, res) => {
-  try {
-    const { status, data_interesse, tipo_local } = req.query;
-    
-    let query = `
-      SELECT fe.*, c.nome as cliente_nome, c.telefone as cliente_telefone
-      FROM fila_espera fe
-      JOIN clientes c ON fe.cliente_id = c.id
-      WHERE 1=1
-    `;
-    const params = [];
-    let paramCount = 0;
-    
-    if (status) {
-      paramCount++;
-      query += ` AND fe.status = $${paramCount}`;
-      params.push(status);
+    try {
+      const { status, data_interesse, tipo_local } = req.query;
+      
+      let query = `
+        SELECT fe.*, c.nome as cliente_nome, c.telefone as cliente_telefone
+        FROM fila_espera fe
+        JOIN clientes c ON fe.cliente_id = c.id
+        WHERE 1=1
+      `;
+      const params = [];
+      let paramCount = 0;
+      
+      if (status) {
+        paramCount++;
+        query += ` AND fe.status = $${paramCount}`;
+        params.push(status);
+      }
+      
+      if (data_interesse) {
+        paramCount++;
+        query += ` AND fe.data_interesse = $${paramCount}`;
+        params.push(data_interesse);
+      }
+      
+      if (tipo_local) {
+        paramCount++;
+        query += ` AND fe.tipo_local = $${paramCount}`;
+        params.push(tipo_local);
+      }
+      
+      query += ` ORDER BY fe.data_criacao ASC`;
+      
+      const result = await pool.query(query, params);
+      
+      res.json({ 
+        filaEspera: result.rows,
+        filtros: { status, data_interesse, tipo_local },
+        activeMenu: 'fila-espera'
+      });
+    } catch (error) {
+      console.error('Erro ao buscar fila de espera:', error);
+      res.status(500).send('Erro ao buscar dados');
     }
-    
-    if (data_interesse) {
-      paramCount++;
-      query += ` AND fe.data_interesse = $${paramCount}`;
-      params.push(data_interesse);
-    }
-    
-    if (tipo_local) {
-      paramCount++;
-      query += ` AND fe.tipo_local = $${paramCount}`;
-      params.push(tipo_local);
-    }
-    
-    query += ` ORDER BY fe.data_criacao ASC`;
-    
-    const result = await pool.query(query, params);
-    
-    res.render('fila-espera/index', { 
-      filaEspera: result.rows,
-      filtros: { status, data_interesse, tipo_local },
-      activeMenu: 'fila-espera'
-    });
-  } catch (error) {
-    console.error('Erro ao buscar fila de espera:', error);
-    res.status(500).send('Erro ao buscar dados');
   }
-});
+);
 
 // Formulário para novo item na fila
 router.get('/novo', 
@@ -77,6 +80,7 @@ router.get('/novo',
 // Salvar novo item na fila
 router.post('/', 
   checkPermission('fila_espera_criar'),
+  invalidateCache(['fila_espera_*']),
   async (req, res) => {
   const { 
     cliente_id, 
@@ -142,6 +146,7 @@ router.get('/editar/:id',
 // Atualizar item da fila
 router.put('/:id', 
   checkPermission('fila_espera_editar'),
+  invalidateCache(['fila_espera_*']),
   async (req, res) => {
   const { id } = req.params;
   const { 
@@ -168,7 +173,10 @@ router.put('/:id',
 });
 
 // Excluir item da fila
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', 
+  checkPermission('fila_espera_excluir'),
+  invalidateCache(['fila_espera_*']),
+  async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM fila_espera WHERE id = $1', [id]);

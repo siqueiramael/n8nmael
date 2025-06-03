@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,10 +9,11 @@ const router = express.Router();
 router.get('/', 
   checkPermission('view_midias'),
   addBreadcrumb([{ title: 'Sistema', icon: 'fas fa-cogs' }, { title: 'Mídias', icon: 'fas fa-photo-video' }]),
+  cacheMiddleware('midias_list', 300),
   async (req, res) => {
     try {
       const result = await pool.query('SELECT * FROM midias ORDER BY data_criacao DESC');
-      res.render('midias/index', { 
+      res.json({ 
         midias: result.rows,
         activeMenu: 'midias'
       });
@@ -34,6 +36,7 @@ router.get('/novo',
 // Salvar nova mídia
 router.post('/', 
   checkPermission('edit_midias'),
+  invalidateCache(['midias_*']),
   async (req, res) => {
     const { nome, tipo, url, descricao, tags, status } = req.body;
     try {

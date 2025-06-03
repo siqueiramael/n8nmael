@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,6 +9,7 @@ const router = express.Router();
 router.get('/', 
   checkPermission('view_creditos'),
   addBreadcrumb([{ title: 'Financeiro', icon: 'fas fa-dollar-sign' }, { title: 'Créditos de Cliente', icon: 'fas fa-coins' }]),
+  cacheMiddleware('creditos_list', 300),
   async (req, res) => {
     try {
       const result = await pool.query(`
@@ -17,7 +19,7 @@ router.get('/',
         LEFT JOIN agendamentos a ON cc.agendamento_origem_id = a.id
         ORDER BY cc.data_criacao DESC
       `);
-      res.render('creditos/index', { 
+      res.json({ 
         creditos: result.rows,
         activeMenu: 'creditos'
       });
@@ -32,6 +34,7 @@ router.get('/',
 router.get('/novo', 
   checkPermission('edit_creditos'),
   addBreadcrumb([{ title: 'Financeiro', icon: 'fas fa-dollar-sign' }, { title: 'Créditos de Cliente', icon: 'fas fa-coins', url: '/admin/creditos' }, { title: 'Novo', icon: 'fas fa-plus' }]),
+  cacheMiddleware('creditos_form_data', 600),
   async (req, res) => {
     try {
       const clientesResult = await pool.query('SELECT id, nome FROM clientes WHERE status = \'ativo\' ORDER BY nome');
@@ -43,14 +46,14 @@ router.get('/novo',
         ORDER BY a.data_agendamento DESC
       `);
       
-      res.render('creditos/novo', { 
+      res.json({ 
         clientes: clientesResult.rows,
         agendamentos: agendamentosResult.rows,
         activeMenu: 'creditos'
       });
     } catch (error) {
-      console.error('Erro ao buscar dados para formulário:', error);
-      res.status(500).send('Erro ao carregar formulário');
+      console.error('Erro ao buscar dados do formulário:', error);
+      res.status(500).send('Erro ao buscar dados');
     }
   }
 );
@@ -58,6 +61,7 @@ router.get('/novo',
 // Salvar novo crédito
 router.post('/', 
   checkPermission('edit_creditos'),
+  invalidateCache(['creditos_*']),
   async (req, res) => {
     const { cliente_id, valor, tipo, agendamento_origem_id, observacoes } = req.body;
     try {

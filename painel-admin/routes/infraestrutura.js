@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,10 +9,11 @@ const router = express.Router();
 router.get('/', 
   checkPermission('view_infraestrutura'),
   addBreadcrumb([{ title: 'Sistema', icon: 'fas fa-cogs' }, { title: 'Infraestrutura', icon: 'fas fa-server' }]),
+  cacheMiddleware('infraestrutura_list', 600),
   async (req, res) => {
     try {
       const result = await pool.query('SELECT * FROM infraestrutura ORDER BY tipo, nome');
-      res.render('infraestrutura/index', { 
+      res.json({ 
         infraestrutura: result.rows,
         activeMenu: 'infraestrutura'
       });
@@ -34,6 +36,7 @@ router.get('/novo',
 // Salvar nova infraestrutura
 router.post('/', 
   checkPermission('edit_infraestrutura'),
+  invalidateCache(['infraestrutura_*']),
   async (req, res) => {
     const { tipo, nome, descricao, localizacao, status, especificacoes } = req.body;
     try {

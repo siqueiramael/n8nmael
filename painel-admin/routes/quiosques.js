@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,18 +9,20 @@ const router = express.Router();
 router.get('/', 
   checkPermission('quiosques_visualizar'),
   addBreadcrumb('Quiosques', '/admin/quiosques'),
+  cacheMiddleware('quiosques_list', 600),
   async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM quiosques ORDER BY numero');
-    res.render('quiosques/index', { 
-      quiosques: result.rows,
-      activeMenu: 'quiosques'
-    });
-  } catch (error) {
-    console.error('Erro ao buscar quiosques:', error);
-    res.status(500).send('Erro ao buscar dados');
+    try {
+      const result = await pool.query('SELECT * FROM quiosques ORDER BY numero');
+      res.json({ 
+        quiosques: result.rows,
+        activeMenu: 'quiosques'
+      });
+    } catch (error) {
+      console.error('Erro ao buscar quiosques:', error);
+      res.status(500).send('Erro ao buscar dados');
+    }
   }
-});
+);
 
 // Formulário para novo quiosque
 router.get('/novo', 
@@ -33,20 +36,22 @@ router.get('/novo',
 // Salvar novo quiosque
 router.post('/', 
   checkPermission('quiosques_criar'),
+  invalidateCache(['quiosques_*']),
   async (req, res) => {
-  const { numero, descricao, posicao } = req.body;
-  try {
-    await pool.query(
-      `INSERT INTO quiosques (numero, descricao, posicao)
-       VALUES ($1, $2, $3)`,
-      [numero, descricao || null, posicao || null]
-    );
-    res.redirect('/admin/quiosques');
-  } catch (error) {
-    console.error('Erro ao inserir quiosque:', error);
-    res.status(500).send('Erro ao salvar dados');
+    const { numero, descricao, posicao } = req.body;
+    try {
+      await pool.query(
+        `INSERT INTO quiosques (numero, descricao, posicao)
+         VALUES ($1, $2, $3)`,
+        [numero, descricao || null, posicao || null]
+      );
+      res.redirect('/admin/quiosques');
+    } catch (error) {
+      console.error('Erro ao inserir quiosque:', error);
+      res.status(500).send('Erro ao salvar dados');
+    }
   }
-});
+);
 
 // Formulário para editar quiosque
 router.get('/editar/:id', 
@@ -75,6 +80,7 @@ router.get('/editar/:id',
 // Atualizar quiosque
 router.put('/:id', 
   checkPermission('quiosques_editar'),
+  invalidateCache(['quiosques_*']),
   async (req, res) => {
   const { id } = req.params;
   const { numero, descricao, posicao } = req.body;
@@ -90,6 +96,24 @@ router.put('/:id',
   } catch (error) {
     console.error('Erro ao atualizar quiosque:', error);
     res.status(500).send('Erro ao atualizar dados');
+  }
+});
+
+// Excluir quiosque
+router.delete('/:id', 
+  checkPermission('quiosques_excluir'),
+  invalidateCache(['quiosques_*']),
+  async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query(
+      `DELETE FROM quiosques WHERE id = $1`,
+      [id]
+    );
+    res.redirect('/admin/quiosques');
+  } catch (error) {
+    console.error('Erro ao excluir quiosque:', error);
+    res.status(500).send('Erro ao excluir dados');
   }
 });
 

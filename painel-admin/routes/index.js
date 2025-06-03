@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { CacheManager } from '../db/redis.js';
 import precosRoutes from './precos.js';
 import clientesRoutes from './clientes.js';
 import quiosquesRoutes from './quiosques.js';
@@ -16,18 +17,47 @@ import logsInteracoesRoutes from './logs-interacoes.js';
 
 const router = express.Router();
 
-// Rota principal do painel admin
+// Rota principal do painel admin com cache
 router.get('/', 
   checkPermission('view_all'),
   async (req, res) => {
     try {
-      const result = await pool.query('SELECT * FROM precos_quiosques ORDER BY tipo_local, numero');
+      const cacheKey = 'dashboard_data';
+      
+      // Tentar recuperar do cache
+      let dashboardData = await CacheManager.getCache(cacheKey);
+      
+      if (!dashboardData) {
+        // Buscar dados do dashboard
+        const [precos, totalClientes, totalAgendamentos, totalCampanhas, totalQuiosques] = await Promise.all([
+          pool.query('SELECT * FROM precos_quiosques ORDER BY tipo_local, numero'),
+          pool.query('SELECT COUNT(*) as total FROM clientes WHERE status = \'ativo\''),
+          pool.query('SELECT COUNT(*) as total FROM agendamentos WHERE data_agendamento >= CURRENT_DATE'),
+          pool.query('SELECT COUNT(*) as total FROM campanhas WHERE status = \'ativo\''),
+          pool.query('SELECT COUNT(*) as total FROM quiosques')
+        ]);
+        
+        dashboardData = {
+          precos: precos.rows,
+          totalClientes: totalClientes.rows[0].total,
+          totalAgendamentos: totalAgendamentos.rows[0].total,
+          totalCampanhas: totalCampanhas.rows[0].total,
+          totalQuiosques: totalQuiosques.rows[0].total
+        };
+        
+        // Salvar no cache por 10 minutos
+        await CacheManager.setCache(cacheKey, dashboardData, 600);
+        console.log('💾 Dashboard salvo no cache');
+      } else {
+        console.log('⚡ Dashboard recuperado do cache');
+      }
+      
       res.render('admin', { 
-        precos: result.rows,
+        ...dashboardData,
         activeMenu: 'dashboard'
       });
     } catch (error) {
-      console.error('Erro ao buscar preços:', error);
+      console.error('Erro ao buscar dados do dashboard:', error);
       res.status(500).send('Erro ao buscar dados');
     }
   }

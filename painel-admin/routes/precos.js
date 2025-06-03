@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,10 +9,11 @@ const router = express.Router();
 router.get('/', 
   checkPermission('precos_visualizar'),
   addBreadcrumb('Preços', '/admin/precos'),
+  cacheMiddleware('precos_list', 600),
   async (req, res) => {
     try {
       const result = await pool.query('SELECT * FROM precos_quiosques ORDER BY tipo_local, numero');
-      res.render('precos/index', { 
+      res.json({ 
         precos: result.rows,
         activeMenu: 'precos'
       });
@@ -19,7 +21,8 @@ router.get('/',
       console.error('Erro ao buscar preços:', error);
       res.status(500).send('Erro ao buscar dados');
     }
-  });
+  }
+);
 
 // Formulário para novo preço
 router.get('/novo', 
@@ -33,6 +36,7 @@ router.get('/novo',
 // Salvar novo preço
 router.post('/', 
   checkPermission('precos_criar'),
+  invalidateCache(['precos_*']),
   async (req, res) => {
   const { tipo_local, numero, valor, data_inicio, data_fim, motivo } = req.body;
   try {

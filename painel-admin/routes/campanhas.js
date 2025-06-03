@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,10 +9,11 @@ const router = express.Router();
 router.get('/', 
   checkPermission('view_campanhas'),
   addBreadcrumb([{ title: 'Clientes & Marketing', icon: 'fas fa-users' }, { title: 'Campanhas', icon: 'fas fa-bullhorn' }]),
+  cacheMiddleware('campanhas_list', 300),
   async (req, res) => {
     try {
       const result = await pool.query('SELECT * FROM campanhas ORDER BY data_criacao DESC');
-      res.render('campanhas/index', { 
+      res.json({ 
         campanhas: result.rows,
         activeMenu: 'campanhas'
       });
@@ -34,6 +36,7 @@ router.get('/novo',
 // Salvar nova campanha
 router.post('/', 
   checkPermission('edit_campanhas'),
+  invalidateCache(['campanhas_*']),
   async (req, res) => {
     const { nome, descricao, tipo, data_inicio, data_fim, publico_alvo, orcamento, status } = req.body;
     try {

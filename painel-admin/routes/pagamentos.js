@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,6 +9,7 @@ const router = express.Router();
 router.get('/', 
   checkPermission('view_pagamentos'),
   addBreadcrumb([{ title: 'Financeiro', icon: 'fas fa-dollar-sign' }, { title: 'Pagamentos', icon: 'fas fa-credit-card' }]),
+  cacheMiddleware('pagamentos_list', 300),
   async (req, res) => {
     try {
       const result = await pool.query(`
@@ -19,7 +21,7 @@ router.get('/',
         LEFT JOIN quiosques q ON a.quiosque_id = q.id
         ORDER BY p.data_criacao DESC
       `);
-      res.render('pagamentos/index', { 
+      res.json({ 
         pagamentos: result.rows,
         activeMenu: 'pagamentos'
       });
@@ -34,6 +36,7 @@ router.get('/',
 router.get('/novo', 
   checkPermission('edit_pagamentos'),
   addBreadcrumb([{ title: 'Financeiro', icon: 'fas fa-dollar-sign' }, { title: 'Pagamentos', icon: 'fas fa-credit-card', url: '/admin/pagamentos' }, { title: 'Novo', icon: 'fas fa-plus' }]),
+  cacheMiddleware('pagamentos_form_data', 600),
   async (req, res) => {
     try {
       const agendamentosResult = await pool.query(`
@@ -46,13 +49,13 @@ router.get('/novo',
         ORDER BY a.data_agendamento DESC
       `);
       
-      res.render('pagamentos/novo', { 
+      res.json({ 
         agendamentos: agendamentosResult.rows,
         activeMenu: 'pagamentos'
       });
     } catch (error) {
       console.error('Erro ao buscar agendamentos:', error);
-      res.status(500).send('Erro ao carregar formulário');
+      res.status(500).send('Erro ao buscar dados');
     }
   }
 );
@@ -60,6 +63,7 @@ router.get('/novo',
 // Salvar novo pagamento
 router.post('/', 
   checkPermission('edit_pagamentos'),
+  invalidateCache(['pagamentos_*', 'agendamentos_*']),
   async (req, res) => {
     const { agendamento_id, valor_pago, metodo_pagamento, observacoes } = req.body;
     try {
@@ -109,8 +113,30 @@ router.get('/editar/:id',
 );
 
 // Atualizar pagamento
-router.post('/editar/:id', 
+router.put('/:id', 
   checkPermission('edit_pagamentos'),
+  invalidateCache(['pagamentos_*']),
+  async (req, res) => {
+    const { id } = req.params;
+    const { valor_pago, metodo_pagamento, status, observacoes } = req.body;
+    try {
+      await pool.query(
+        `UPDATE pagamentos SET valor_pago = $1, metodo_pagamento = $2, status = $3, 
+         observacoes = $4, data_atualizacao = CURRENT_TIMESTAMP WHERE id = $5`,
+        [valor_pago, metodo_pagamento, status, observacoes || null, id]
+      );
+      res.redirect('/admin/pagamentos');
+    } catch (error) {
+      console.error('Erro ao atualizar pagamento:', error);
+      res.status(500).send('Erro ao salvar dados');
+    }
+  }
+);
+
+// Excluir pagamento
+router.delete('/:id', 
+  checkPermission('edit_pagamentos'),
+  invalidateCache(['pagamentos_*', 'agendamentos_*']),
   async (req, res) => {
     const { id } = req.params;
     const { valor_pago, metodo_pagamento, status, observacoes } = req.body;

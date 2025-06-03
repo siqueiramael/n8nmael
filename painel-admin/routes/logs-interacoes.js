@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -8,62 +9,58 @@ const router = express.Router();
 router.get('/', 
   checkPermission('logs_interacoes_visualizar'),
   addBreadcrumb('Logs de Interações', '/admin/logs-interacoes'),
+  cacheMiddleware((req) => `logs_interacoes_list_${JSON.stringify(req.query)}`, 600),
   async (req, res) => {
-  try {
-    // Parâmetros de filtro
-    const { cliente, tipo, dataInicio, dataFim } = req.query;
-    
-    // Construir a consulta com filtros opcionais
-    let query = `
-      SELECT l.*, c.nome as cliente_nome
-      FROM logs_interacoes l
-      LEFT JOIN clientes c ON l.cliente_id = c.id
-      WHERE 1=1
-    `;
-    const queryParams = [];
-    
-    // Adicionar filtros se fornecidos
-    if (cliente) {
-      queryParams.push(`%${cliente}%`);
-      query += ` AND c.nome ILIKE $${queryParams.length}`;
+    try {
+      // Parâmetros de filtro
+      const { cliente, tipo, dataInicio, dataFim } = req.query;
+      
+      // Construir a consulta com filtros opcionais
+      let query = `
+        SELECT l.*, c.nome as cliente_nome
+        FROM logs_interacoes l
+        LEFT JOIN clientes c ON l.cliente_id = c.id
+        WHERE 1=1
+      `;
+      const queryParams = [];
+      
+      // Adicionar filtros se fornecidos
+      if (cliente) {
+        queryParams.push(`%${cliente}%`);
+        query += ` AND c.nome ILIKE $${queryParams.length}`;
+      }
+      
+      if (tipo) {
+        queryParams.push(tipo);
+        query += ` AND l.tipo = $${queryParams.length}`;
+      }
+      
+      if (dataInicio) {
+        queryParams.push(dataInicio);
+        query += ` AND l.data_registro >= $${queryParams.length}`;
+      }
+      
+      if (dataFim) {
+        queryParams.push(dataFim);
+        query += ` AND l.data_registro <= $${queryParams.length}`;
+      }
+      
+      // Ordenação
+      query += ` ORDER BY l.data_registro DESC`;
+      
+      const result = await pool.query(query, queryParams);
+      
+      res.json({
+        logs: result.rows,
+        filtros: { cliente, tipo, dataInicio, dataFim },
+        activeMenu: 'logs-interacoes'
+      });
+    } catch (error) {
+      console.error('Erro ao buscar logs de interações:', error);
+      res.status(500).send('Erro ao buscar dados');
     }
-    
-    if (tipo) {
-      queryParams.push(tipo);
-      query += ` AND l.tipo = $${queryParams.length}`;
-    }
-    
-    if (dataInicio) {
-      queryParams.push(dataInicio);
-      query += ` AND l.data_registro >= $${queryParams.length}`;
-    }
-    
-    if (dataFim) {
-      queryParams.push(dataFim);
-      query += ` AND l.data_registro <= $${queryParams.length}`;
-    }
-    
-    // Ordenação
-    query += ` ORDER BY l.data_registro DESC`;
-    
-    const result = await pool.query(query, queryParams);
-    
-    // Buscar dados para os filtros
-    const tiposResult = await pool.query(`
-      SELECT DISTINCT tipo FROM logs_interacoes ORDER BY tipo
-    `);
-    
-    res.render('logs-interacoes/index', { 
-      logs: result.rows,
-      tipos: tiposResult.rows,
-      filtros: { cliente, tipo, dataInicio, dataFim },
-      activeMenu: 'logs-interacoes'
-    });
-  } catch (error) {
-    console.error('Erro ao buscar logs de interações:', error);
-    res.status(500).send('Erro ao buscar dados');
   }
-});
+);
 
 // Visualizar detalhes de um log específico
 router.get('/visualizar/:id', async (req, res) => {

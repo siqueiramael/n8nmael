@@ -1,10 +1,11 @@
-// Middleware de autenticação
+import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { CacheManager } from '../db/redis.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'seu_jwt_secret_aqui';
 
-// Middleware de autenticação
+// Middleware de autenticação com cache Redis
 export const requireAuth = async (req, res, next) => {
   try {
     const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '');
@@ -12,38 +13,75 @@ export const requireAuth = async (req, res, next) => {
     if (!token) {
       return res.redirect('/admin/login');
     }
-    
+
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.userId);
+    const sessionKey = `user_${decoded.userId}`;
     
-    if (!user || !user.ativo) {
-      return res.redirect('/admin/login');
+    // Tentar recuperar do cache primeiro
+    let userData = await CacheManager.getSession(sessionKey);
+    
+    if (!userData) {
+      // Se não estiver em cache, buscar no banco
+      const user = await User.findById(decoded.userId);
+      
+      if (!user || !user.ativo) {
+        return res.redirect('/admin/login');
+      }
+      
+      // Buscar permissões
+      const permissions = await User.getUserPermissions(user.id);
+      
+      userData = {
+        ...user,
+        permissions
+      };
+      
+      // Salvar no cache por 1 hora
+      await CacheManager.setSession(sessionKey, userData, 3600);
+    } else {
+      // Renovar TTL da sessão se encontrada no cache
+      await CacheManager.renewSession(sessionKey, 3600);
     }
-    
-    // Buscar permissões do usuário
-    const permissions = await User.getUserPermissions(user.id);
-    
-    req.user = {
-      ...user,
-      permissions
-    };
+
+    req.user = userData;
     
     req.userPermissions = {
       hasPermission: (permission) => {
-        return permissions.includes(permission) || permissions.includes('view_all');
+        return userData.permissions.includes(permission) || userData.permissions.includes('view_all');
       },
       hasAnyPermission: (permissionList) => {
-        return permissionList.some(p => permissions.includes(p)) || permissions.includes('view_all');
+        return permissionList.some(p => userData.permissions.includes(p)) || userData.permissions.includes('view_all');
       }
     };
-    
+
     // Disponibilizar dados do usuário para as views
     res.locals.currentUser = req.user;
     res.locals.userPermissions = req.userPermissions;
-    
+
     next();
   } catch (error) {
     console.error('Erro de autenticação:', error);
+    res.redirect('/admin/login');
+  }
+};
+
+// Middleware para logout com limpeza de cache
+export const logout = async (req, res) => {
+  try {
+    const token = req.cookies.authToken;
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const sessionKey = `user_${decoded.userId}`;
+      
+      // Remover do cache
+      await CacheManager.deleteSession(sessionKey);
+    }
+    
+    res.clearCookie('authToken');
+    res.redirect('/admin/login');
+  } catch (error) {
+    console.error('Erro no logout:', error);
+    res.clearCookie('authToken');
     res.redirect('/admin/login');
   }
 };
