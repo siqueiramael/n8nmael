@@ -20,9 +20,12 @@
             <i class="fas fa-eye"></i> Visualização
           </span>
         </h2>
-        <a href="/admin/agendamentos/novo" class="btn btn-primary" data-permission="agendamentos_criar">
-          <i class="fas fa-plus"></i> Novo Agendamento
-        </a>
+        <div>
+          <%- include('../partials/export-buttons', { moduleName: 'agendamentos' }) %>
+          <a href="/admin/agendamentos/novo" class="btn btn-primary" data-permission="agendamentos_criar">
+            <i class="fas fa-plus"></i> Novo Agendamento
+          </a>
+        </div>
       </div>
       
       <div class="card">
@@ -76,4 +79,6 @@
   </div>
 </div>
 
+<!-- No final da página -->
+<%- include('../partials/custom-export-modal') %>
 <%- include('../partials/footer') %>

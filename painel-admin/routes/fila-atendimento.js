@@ -3,6 +3,8 @@ import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -499,5 +501,63 @@ router.get('/relatorio', async (req, res) => {
     }
   }
 });
+
+// Função para construir query de fila de atendimento
+function buildFilaAtendimentoQuery(filters) {
+  let query = `
+    SELECT 
+      id,
+      cliente_id,
+      tipo_solicitacao,
+      descricao,
+      prioridade,
+      status,
+      data_solicitacao,
+      data_inicio_atendimento,
+      data_fim_atendimento,
+      responsavel_atendimento,
+      observacoes,
+      EXTRACT(EPOCH FROM (data_fim_atendimento - data_inicio_atendimento))/60 as duracao_minutos
+    FROM fila_atendimento
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.status) {
+    conditions.push(`status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.prioridade) {
+    conditions.push(`prioridade = $${params.length + 1}`);
+    params.push(filters.prioridade);
+  }
+  
+  if (filters.data_inicio) {
+    conditions.push(`DATE(data_solicitacao) >= $${params.length + 1}`);
+    params.push(filters.data_inicio);
+  }
+  
+  if (filters.data_fim) {
+    conditions.push(`DATE(data_solicitacao) <= $${params.length + 1}`);
+    params.push(filters.data_fim);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY data_solicitacao DESC';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('fila_atendimento', buildFilaAtendimentoQuery, 'fila_atendimento_visualizar');
+
+// Rotas de exportação
+router.get('/export/csv', checkPermission('fila_atendimento_visualizar'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('fila_atendimento_visualizar'), exportMiddleware.excel);
 
 export default router;

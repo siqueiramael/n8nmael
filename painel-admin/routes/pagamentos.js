@@ -3,6 +3,8 @@ import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -277,6 +279,124 @@ router.get('/relatorio',
         ip: req.ip
       });
       res.status(500).send('Erro ao gerar relatório');
+    }
+  }
+);
+
+// Função para construir query de pagamentos
+function buildPagamentosQuery(filters) {
+  let query = `
+    SELECT 
+      p.id,
+      p.agendamento_id,
+      c.nome as cliente_nome,
+      p.valor,
+      p.metodo_pagamento,
+      p.status,
+      p.data_pagamento,
+      p.data_criacao,
+      a.data_agendamento,
+      CONCAT(a.tipo_local, ' ', COALESCE(q.numero::text, a.numero::text)) as local_info
+    FROM pagamentos p
+    JOIN agendamentos a ON p.agendamento_id = a.id
+    JOIN clientes c ON a.cliente_id = c.id
+    LEFT JOIN quiosques q ON a.quiosque_id = q.id
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.status) {
+    conditions.push(`p.status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.metodo_pagamento) {
+    conditions.push(`p.metodo_pagamento = $${params.length + 1}`);
+    params.push(filters.metodo_pagamento);
+  }
+  
+  if (filters.data_inicio) {
+    conditions.push(`DATE(p.data_pagamento) >= $${params.length + 1}`);
+    params.push(filters.data_inicio);
+  }
+  
+  if (filters.data_fim) {
+    conditions.push(`DATE(p.data_pagamento) <= $${params.length + 1}`);
+    params.push(filters.data_fim);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY p.data_criacao DESC';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('pagamentos', buildPagamentosQuery, 'view_pagamentos');
+
+// Rotas de exportação
+router.get('/export/csv', checkPermission('view_pagamentos'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('view_pagamentos'), exportMiddleware.excel);
+
+// Export personalizado
+router.get('/export/custom/:format',
+  checkPermission('view_pagamentos'),
+  async (req, res) => {
+    const { format } = req.params;
+    const startTime = Date.now();
+    
+    try {
+      const { query, params } = buildPagamentosQuery(req.query);
+      const result = await pool.query(query, params);
+      
+      let { headers, data } = ExportUtils.formatDataForExport('pagamentos', result.rows);
+      
+      if (req.query.fields) {
+        const selectedFields = req.query.fields.split(',');
+        headers = headers.filter(h => selectedFields.includes(h));
+        data = data.map(row => {
+          const filteredRow = {};
+          selectedFields.forEach(field => {
+            if (row[field] !== undefined) filteredRow[field] = row[field];
+          });
+          return filteredRow;
+        });
+      }
+      
+      const filename = `pagamentos_personalizado_${new Date().toISOString().split('T')[0]}`;
+      
+      if (format === 'csv') {
+        ExportUtils.exportToCSV(data, headers, filename, res);
+      } else if (format === 'excel') {
+        ExportUtils.exportToExcel(data, headers, filename, res, {
+          sheetName: 'Pagamentos',
+          title: 'Relatório de Pagamentos'
+        });
+      } else {
+        return res.status(400).send('Formato não suportado');
+      }
+      
+      loggers.system.info('Custom pagamentos export', {
+        userId: req.user?.id,
+        format,
+        recordCount: result.rows.length,
+        filters: req.query,
+        duration: Date.now() - startTime
+      });
+      
+    } catch (error) {
+      loggers.error.error('Custom pagamentos export error', {
+        error: error.message,
+        userId: req.user?.id,
+        format,
+        filters: req.query
+      });
+      
+      res.status(500).send('Erro ao exportar dados');
     }
   }
 );

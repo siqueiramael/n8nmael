@@ -12,53 +12,92 @@
 <div class="container-fluid main-content">
   <div class="row">
     <div class="col-12">
+      <!-- Adicionar botões de export no cabeçalho da página -->
       <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-          <i class="fas fa-user"></i> Gerenciamento de Clientes
-        </h2>
-        <a href="/admin/clientes/novo" class="btn btn-primary permission-badge" data-permission="clientes.create">
-          <i class="fas fa-plus"></i> Novo Cliente
-        </a>
+        <h2><i class="fas fa-users"></i> Gestão de Clientes</h2>
+        <div class="btn-group">
+          <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="fas fa-download"></i> Exportar
+          </button>
+          <ul class="dropdown-menu">
+            <li>
+              <a class="dropdown-item" href="#" onclick="exportData('csv')">
+                <i class="fas fa-file-csv"></i> Exportar CSV
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="#" onclick="exportData('excel')">
+                <i class="fas fa-file-excel"></i> Exportar Excel
+              </a>
+            </li>
+          </ul>
+        </div>
       </div>
       
-      <div class="card permission-badge" data-permission="clientes.view">
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-striped table-hover">
-              <thead class="table-dark">
+      <!-- Script para export -->
+      <script>
+      function exportData(format) {
+        // Capturar filtros atuais
+        const form = document.querySelector('form');
+        const formData = new FormData(form);
+        const params = new URLSearchParams();
+        
+        for (let [key, value] of formData.entries()) {
+          if (value) params.append(key, value);
+        }
+        
+        // Construir URL de export
+        const exportUrl = `/admin/clientes/export/${format}?${params.toString()}`;
+        
+        // Abrir em nova janela para download
+        window.open(exportUrl, '_blank');
+      }
+      </script>
+      <h2>
+        <i class="fas fa-user"></i> Gerenciamento de Clientes
+      </h2>
+      <a href="/admin/clientes/novo" class="btn btn-primary permission-badge" data-permission="clientes.create">
+        <i class="fas fa-plus"></i> Novo Cliente
+      </a>
+    </div>
+    
+    <div class="card permission-badge" data-permission="clientes.view">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover">
+            <thead class="table-dark">
+              <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>WhatsApp</th>
+                <th>Status</th>
+                <th>Data Cadastro</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% clientes.forEach(cliente => { %>
                 <tr>
-                  <th>ID</th>
-                  <th>Nome</th>
-                  <th>Telefone</th>
-                  <th>WhatsApp</th>
-                  <th>Status</th>
-                  <th>Data Cadastro</th>
-                  <th>Ações</th>
+                  <td><%= cliente.id %></td>
+                  <td><%= cliente.nome %></td>
+                  <td><%= cliente.telefone %></td>
+                  <td><%= cliente.telefone_whatsapp || '-' %></td>
+                  <td>
+                    <span class="badge <%= cliente.status === 'ativo' ? 'bg-success' : 'bg-secondary' %>">
+                      <%= cliente.status %>
+                    </span>
+                  </td>
+                  <td><%= new Date(cliente.data_cadastro).toLocaleDateString('pt-BR') %></td>
+                  <td>
+                    <a href="/admin/clientes/editar/<%= cliente.id %>" class="btn btn-sm btn-outline-primary permission-badge" data-permission="clientes.edit">
+                      <i class="fas fa-edit"></i> Editar
+                    </a>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                <% clientes.forEach(cliente => { %>
-                  <tr>
-                    <td><%= cliente.id %></td>
-                    <td><%= cliente.nome %></td>
-                    <td><%= cliente.telefone %></td>
-                    <td><%= cliente.telefone_whatsapp || '-' %></td>
-                    <td>
-                      <span class="badge <%= cliente.status === 'ativo' ? 'bg-success' : 'bg-secondary' %>">
-                        <%= cliente.status %>
-                      </span>
-                    </td>
-                    <td><%= new Date(cliente.data_cadastro).toLocaleDateString('pt-BR') %></td>
-                    <td>
-                      <a href="/admin/clientes/editar/<%= cliente.id %>" class="btn btn-sm btn-outline-primary permission-badge" data-permission="clientes.edit">
-                        <i class="fas fa-edit"></i> Editar
-                      </a>
-                    </td>
-                  </tr>
-                <% }) %>
-              </tbody>
-            </table>
-          </div>
+              <% }) %>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

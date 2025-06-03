@@ -5,6 +5,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2>Gerenciamento de Créditos</h2>
   <div>
+    <%- include('../partials/export-buttons', { moduleName: 'creditos' }) %>
     <a href="/admin/creditos/relatorio" class="btn btn-outline-secondary me-2 permission-badge" data-permission="creditos.relatorios">Relatório de Créditos</a>
     <a href="/admin/creditos/novo" class="btn btn-primary permission-badge" data-permission="creditos.criar">Novo Crédito</a>
   </div>
@@ -66,4 +67,6 @@
   </div>
 <% } %>
 
+<!-- No final da página -->
+<%- include('../partials/custom-export-modal') %>
 <%- include('../partials/footer') %>

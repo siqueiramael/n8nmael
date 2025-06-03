@@ -4,6 +4,8 @@ import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
 import { crudLogger } from '../middleware/logging.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -262,4 +264,58 @@ router.put('/:id',
   }
 );
 
+// Adicionar imports no início do arquivo
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
+
+// Função para construir query de créditos
+function buildCreditosQuery(filters) {
+  let query = `
+    SELECT 
+      c.id,
+      cl.nome as cliente_nome,
+      c.valor,
+      c.tipo,
+      c.descricao,
+      c.data_criacao,
+      c.data_expiracao,
+      c.status
+    FROM creditos c
+    LEFT JOIN clientes cl ON c.cliente_id = cl.id
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.cliente_id) {
+    conditions.push(`c.cliente_id = $${params.length + 1}`);
+    params.push(filters.cliente_id);
+  }
+  
+  if (filters.status) {
+    conditions.push(`c.status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.tipo) {
+    conditions.push(`c.tipo = $${params.length + 1}`);
+    params.push(filters.tipo);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY c.data_criacao DESC';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('creditos', buildCreditosQuery, 'view_creditos');
+
+// Adicionar antes do export default router
+router.get('/export/csv', checkPermission('view_creditos'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('view_creditos'), exportMiddleware.excel);
+router.get('/export/custom/:format', checkPermission('view_creditos'), /* implementar rota personalizada */);
 export default router;

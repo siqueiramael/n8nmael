@@ -4,6 +4,8 @@ import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
 import { crudLogger } from '../middleware/logging.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -209,5 +211,57 @@ router.put('/:id',
     }
   }
 );
+
+// Função para construir query de infraestrutura
+function buildInfraestruturaQuery(filters) {
+  let query = `
+    SELECT 
+      id,
+      nome,
+      tipo,
+      descricao,
+      status,
+      localizacao,
+      especificacoes,
+      data_instalacao,
+      data_manutencao,
+      responsavel,
+      observacoes
+    FROM infraestrutura
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.tipo) {
+    conditions.push(`tipo = $${params.length + 1}`);
+    params.push(filters.tipo);
+  }
+  
+  if (filters.status) {
+    conditions.push(`status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.responsavel) {
+    conditions.push(`responsavel ILIKE $${params.length + 1}`);
+    params.push(`%${filters.responsavel}%`);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY tipo, nome';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('infraestrutura', buildInfraestruturaQuery, 'view_infraestrutura');
+
+// Rotas de exportação
+router.get('/export/csv', checkPermission('view_infraestrutura'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('view_infraestrutura'), exportMiddleware.excel);
 
 export default router;

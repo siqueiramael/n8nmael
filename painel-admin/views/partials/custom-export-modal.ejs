@@ -1,0 +1,161 @@
+<!-- Modal para Relatórios Personalizados -->
+<div class="modal fade" id="customExportModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-cog"></i> Relatório Personalizado
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="customExportForm">
+          <!-- Seleção de Campos -->
+          <div class="mb-4">
+            <h6><i class="fas fa-columns"></i> Campos para Exportar</h6>
+            <div class="row" id="fieldsSelection">
+              <!-- Campos serão carregados dinamicamente -->
+            </div>
+          </div>
+          
+          <!-- Filtros Avançados -->
+          <div class="mb-4">
+            <h6><i class="fas fa-filter"></i> Filtros Avançados</h6>
+            <div class="row">
+              <div class="col-md-6">
+                <label class="form-label">Data Início</label>
+                <input type="date" class="form-control" name="dataInicio">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Data Fim</label>
+                <input type="date" class="form-control" name="dataFim">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Opções de Export -->
+          <div class="mb-4">
+            <h6><i class="fas fa-cog"></i> Opções</h6>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="includeStats" name="includeStats" checked>
+              <label class="form-check-label" for="includeStats">
+                Incluir estatísticas (apenas Excel)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="groupByDate" name="groupByDate">
+              <label class="form-check-label" for="groupByDate">
+                Agrupar por data
+              </label>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-success" onclick="executeCustomExport('csv')">
+          <i class="fas fa-file-csv"></i> Exportar CSV
+        </button>
+        <button type="button" class="btn btn-primary" onclick="executeCustomExport('excel')">
+          <i class="fas fa-file-excel"></i> Exportar Excel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Configuração de campos por módulo
+const moduleFields = {
+  clientes: [
+    { key: 'id', label: 'ID', checked: true },
+    { key: 'nome', label: 'Nome', checked: true },
+    { key: 'email', label: 'Email', checked: true },
+    { key: 'telefone', label: 'Telefone', checked: true },
+    { key: 'status', label: 'Status', checked: true },
+    { key: 'data_cadastro', label: 'Data Cadastro', checked: true }
+  ],
+  agendamentos: [
+    { key: 'id', label: 'ID', checked: true },
+    { key: 'cliente', label: 'Cliente', checked: true },
+    { key: 'quiosque', label: 'Quiosque', checked: true },
+    { key: 'data_agendamento', label: 'Data Agendamento', checked: true },
+    { key: 'status', label: 'Status', checked: true },
+    { key: 'valor', label: 'Valor', checked: true }
+  ],
+  pagamentos: [
+    { key: 'id', label: 'ID', checked: true },
+    { key: 'cliente', label: 'Cliente', checked: true },
+    { key: 'valor', label: 'Valor', checked: true },
+    { key: 'status', label: 'Status', checked: true },
+    { key: 'metodo', label: 'Método', checked: true },
+    { key: 'data_pagamento', label: 'Data Pagamento', checked: true }
+  ]
+};
+
+// Carregar campos do módulo
+function loadModuleFields(moduleName) {
+  const fields = moduleFields[moduleName] || [];
+  const container = document.getElementById('fieldsSelection');
+  
+  container.innerHTML = fields.map(field => `
+    <div class="col-md-4 mb-2">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="field_${field.key}" 
+               name="fields" value="${field.key}" ${field.checked ? 'checked' : ''}>
+        <label class="form-check-label" for="field_${field.key}">
+          ${field.label}
+        </label>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Abrir modal personalizado
+function openCustomExportModal(moduleName) {
+  loadModuleFields(moduleName);
+  $('#customExportModal').modal('show');
+  $('#customExportModal').data('module', moduleName);
+}
+
+// Executar export personalizado
+function executeCustomExport(format) {
+  const modal = $('#customExportModal');
+  const moduleName = modal.data('module');
+  const form = document.getElementById('customExportForm');
+  const formData = new FormData(form);
+  
+  // Construir parâmetros
+  const params = new URLSearchParams();
+  
+  // Campos selecionados
+  const selectedFields = Array.from(form.querySelectorAll('input[name="fields"]:checked'))
+    .map(input => input.value);
+  
+  if (selectedFields.length > 0) {
+    params.append('fields', selectedFields.join(','));
+  }
+  
+  // Outros parâmetros
+  for (let [key, value] of formData.entries()) {
+    if (value && key !== 'fields') {
+      params.append(key, value);
+    }
+  }
+  
+  // URL de export personalizado
+  const exportUrl = `/admin/${moduleName}/export/custom/${format}?${params.toString()}`;
+  
+  // Fechar modal e executar download
+  modal.modal('hide');
+  
+  // Download
+  const link = document.createElement('a');
+  link.href = exportUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+</script>

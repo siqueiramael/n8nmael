@@ -4,6 +4,8 @@ import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
 import { crudLogger } from '../middleware/logging.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -111,5 +113,63 @@ router.post('/',
     }
   }
 );
+
+// Função para construir query de mídias
+function buildMidiasQuery(filters) {
+  let query = `
+    SELECT 
+      id,
+      nome,
+      tipo,
+      formato,
+      tamanho,
+      url,
+      descricao,
+      tags,
+      status,
+      data_criacao,
+      data_atualizacao,
+      criado_por
+    FROM midias
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.tipo) {
+    conditions.push(`tipo = $${params.length + 1}`);
+    params.push(filters.tipo);
+  }
+  
+  if (filters.formato) {
+    conditions.push(`formato = $${params.length + 1}`);
+    params.push(filters.formato);
+  }
+  
+  if (filters.status) {
+    conditions.push(`status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.tags) {
+    conditions.push(`tags ILIKE $${params.length + 1}`);
+    params.push(`%${filters.tags}%`);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY data_criacao DESC';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('midias', buildMidiasQuery, 'view_midias');
+
+// Rotas de exportação
+router.get('/export/csv', checkPermission('view_midias'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('view_midias'), exportMiddleware.excel);
 
 export default router;

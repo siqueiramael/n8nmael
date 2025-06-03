@@ -11,7 +11,10 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2>Gerenciamento de Quiosques</h2>
-  <a href="/admin/quiosques/novo" class="btn btn-primary permission-badge" data-permission="quiosques.create">Novo Quiosque</a>
+  <div>
+    <%- include('../partials/export-buttons', { moduleName: 'quiosques' }) %>
+    <a href="/admin/quiosques/novo" class="btn btn-primary permission-badge" data-permission="quiosques.create">Novo Quiosque</a>
+  </div>
 </div>
 
 <table class="table table-striped permission-badge" data-permission="quiosques.view">
@@ -41,4 +44,6 @@
   </tbody>
 </table>
 
+<!-- No final da página -->
+<%- include('../partials/custom-export-modal') %>
 <%- include('../partials/footer') %>

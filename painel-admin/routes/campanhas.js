@@ -4,6 +4,8 @@ import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
 import { crudLogger } from '../middleware/logging.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -344,6 +346,123 @@ router.delete('/:id',
         success: false, 
         message: 'Erro ao deletar campanha'
       });
+    }
+  }
+);
+
+// Função para construir query de campanhas
+function buildCampanhasQuery(filters) {
+  let query = `
+    SELECT 
+      id,
+      nome,
+      descricao,
+      tipo,
+      data_inicio,
+      data_fim,
+      publico_alvo,
+      orcamento,
+      status,
+      data_criacao,
+      data_atualizacao
+    FROM campanhas
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.status) {
+    conditions.push(`status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.tipo) {
+    conditions.push(`tipo = $${params.length + 1}`);
+    params.push(filters.tipo);
+  }
+  
+  if (filters.dataInicio) {
+    conditions.push(`data_inicio >= $${params.length + 1}`);
+    params.push(filters.dataInicio);
+  }
+  
+  if (filters.dataFim) {
+    conditions.push(`data_fim <= $${params.length + 1}`);
+    params.push(filters.dataFim);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY data_criacao DESC';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('campanhas', buildCampanhasQuery, 'view_campanhas');
+
+// Rotas de exportação
+router.get('/export/csv', checkPermission('view_campanhas'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('view_campanhas'), exportMiddleware.excel);
+
+// Export personalizado
+router.get('/export/custom/:format',
+  checkPermission('view_campanhas'),
+  async (req, res) => {
+    const { format } = req.params;
+    const startTime = Date.now();
+    
+    try {
+      const { query, params } = buildCampanhasQuery(req.query);
+      const result = await pool.query(query, params);
+      
+      let { headers, data } = ExportUtils.formatDataForExport('campanhas', result.rows);
+      
+      // Filtrar campos se especificado
+      if (req.query.fields) {
+        const selectedFields = req.query.fields.split(',');
+        headers = headers.filter(h => selectedFields.includes(h));
+        data = data.map(row => {
+          const filteredRow = {};
+          selectedFields.forEach(field => {
+            if (row[field] !== undefined) filteredRow[field] = row[field];
+          });
+          return filteredRow;
+        });
+      }
+      
+      const filename = `campanhas_personalizado_${new Date().toISOString().split('T')[0]}`;
+      
+      if (format === 'csv') {
+        ExportUtils.exportToCSV(data, headers, filename, res);
+      } else if (format === 'excel') {
+        ExportUtils.exportToExcel(data, headers, filename, res, {
+          sheetName: 'Campanhas',
+          title: 'Relatório de Campanhas'
+        });
+      } else {
+        return res.status(400).send('Formato não suportado');
+      }
+      
+      loggers.system.info('Custom campanhas export', {
+        userId: req.user?.id,
+        format,
+        recordCount: result.rows.length,
+        filters: req.query,
+        duration: Date.now() - startTime
+      });
+      
+    } catch (error) {
+      loggers.error.error('Custom campanhas export error', {
+        error: error.message,
+        userId: req.user?.id,
+        format,
+        filters: req.query
+      });
+      
+      res.status(500).send('Erro ao exportar dados');
     }
   }
 );

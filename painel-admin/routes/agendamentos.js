@@ -3,6 +3,8 @@ import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -323,6 +325,112 @@ router.post('/editar/:id',
         duration: Date.now() - startTime
       });
       res.status(500).send('Erro ao salvar dados');
+    }
+  }
+);
+
+// Query builder para agendamentos
+function buildAgendamentosQuery(filters) {
+  let query = `
+    SELECT a.*, c.nome as cliente_nome, q.tipo_local, q.numero
+    FROM agendamentos a
+    LEFT JOIN clientes c ON a.cliente_id = c.id
+    LEFT JOIN quiosques q ON a.quiosque_id = q.id
+    WHERE 1=1
+  `;
+  const params = [];
+  
+  if (filters.cliente) {
+    params.push(`%${filters.cliente}%`);
+    query += ` AND c.nome ILIKE $${params.length}`;
+  }
+  
+  if (filters.status) {
+    params.push(filters.status);
+    query += ` AND a.status = $${params.length}`;
+  }
+  
+  if (filters.dataInicio) {
+    params.push(filters.dataInicio);
+    query += ` AND a.data_agendamento >= $${params.length}`;
+  }
+  
+  if (filters.dataFim) {
+    params.push(filters.dataFim);
+    query += ` AND a.data_agendamento <= $${params.length}`;
+  }
+  
+  query += ` ORDER BY a.data_agendamento DESC`;
+  
+  return { query, params };
+}
+
+// Criar middleware de export
+const exportMiddleware = createExportMiddleware('agendamentos', buildAgendamentosQuery, 'view_agendamentos');
+
+// Rotas de export
+router.get('/export/csv', checkPermission('view_agendamentos'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('view_agendamentos'), exportMiddleware.excel);
+
+// Export personalizado
+router.get('/export/custom/:format', 
+  checkPermission('view_agendamentos'),
+  async (req, res) => {
+    try {
+      const { format } = req.params;
+      const { fields, ...filters } = req.query;
+      
+      // Query personalizada baseada nos campos selecionados
+      const selectedFields = fields ? fields.split(',') : null;
+      const { query, params } = buildAgendamentosQuery(filters);
+      
+      const result = await pool.query(query, params);
+      
+      let { headers, data } = ExportUtils.formatDataForExport('agendamentos', result.rows);
+      
+      // Filtrar campos se especificado
+      if (selectedFields) {
+        const fieldMap = {
+          'id': 'ID',
+          'cliente': 'Cliente',
+          'quiosque': 'Quiosque',
+          'data_agendamento': 'Data Agendamento',
+          'status': 'Status',
+          'valor': 'Valor'
+        };
+        
+        headers = selectedFields.map(field => fieldMap[field]).filter(Boolean);
+        data = data.map(row => {
+          const filteredRow = {};
+          selectedFields.forEach(field => {
+            if (fieldMap[field]) {
+              filteredRow[fieldMap[field].toLowerCase().replace(/\s+/g, '_')] = row[field];
+            }
+          });
+          return filteredRow;
+        });
+      }
+      
+      const filename = `agendamentos_personalizado_${new Date().toISOString().split('T')[0]}`;
+      
+      if (format === 'csv') {
+        ExportUtils.exportToCSV(data, headers, filename, res);
+      } else if (format === 'excel') {
+        ExportUtils.exportToExcel(data, headers, filename, res, {
+          sheetName: 'Agendamentos',
+          includeStats: req.query.includeStats === 'on'
+        });
+      } else {
+        res.status(400).send('Formato não suportado');
+      }
+      
+    } catch (error) {
+      loggers.error.error('Custom export error', {
+        error: error.message,
+        module: 'agendamentos',
+        format: req.params.format
+      });
+      res.status(500).send('Erro ao exportar dados');
     }
   }
 );

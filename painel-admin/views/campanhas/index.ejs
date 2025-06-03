@@ -1,4 +1,6 @@
-<%- include('../partials/header', { title: 'Campanhas' }) %>
+<!DOCTYPE html>
+<html>
+<%- include('../partials/header') %>
 <%- include('../partials/menu') %>
 
 <div class="container-fluid main-content">
@@ -21,6 +23,7 @@
           </span>
         </h2>
         <div>
+          <%- include('../partials/export-buttons', { moduleName: 'campanhas' }) %>
           <a href="/admin/campanhas/relatorio" class="btn btn-outline-secondary me-2" data-permission="campanhas_relatorios">
             <i class="fas fa-chart-line"></i> Relatórios
           </a>
@@ -89,4 +92,8 @@
   </div>
 </div>
 
+<!-- Incluir modal no final da página -->
+<%- include('../partials/custom-export-modal') %>
+
 <%- include('../partials/footer') %>
+</html>

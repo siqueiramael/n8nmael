@@ -4,6 +4,8 @@ import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
 import { crudLogger } from '../middleware/logging.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -110,5 +112,55 @@ router.post('/',
     }
   }
 );
+
+// Função para construir query de quiosques
+function buildQuiosquesQuery(filters) {
+  let query = `
+    SELECT 
+      id,
+      numero,
+      localizacao,
+      status,
+      tipo,
+      capacidade,
+      observacoes,
+      data_criacao,
+      data_atualizacao
+    FROM quiosques
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.status) {
+    conditions.push(`status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.tipo) {
+    conditions.push(`tipo = $${params.length + 1}`);
+    params.push(filters.tipo);
+  }
+  
+  if (filters.localizacao) {
+    conditions.push(`localizacao ILIKE $${params.length + 1}`);
+    params.push(`%${filters.localizacao}%`);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY numero';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('quiosques', buildQuiosquesQuery, 'quiosques_visualizar');
+
+// Rotas de exportação
+router.get('/export/csv', checkPermission('quiosques_visualizar'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('quiosques_visualizar'), exportMiddleware.excel);
 
 export default router;

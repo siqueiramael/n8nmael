@@ -3,6 +3,7 @@ import { checkPermission } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
 import { crudLogger } from '../middleware/logging.js';
+import { ExportUtils } from '../utils/export.js';
 
 const router = express.Router();
 
@@ -283,6 +284,129 @@ router.delete('/:id',
         success: false, 
         message: 'Erro ao deletar cliente'
       });
+    }
+  }
+);
+
+// Adicionar antes do export default router;
+
+// Exportar clientes para CSV
+router.get('/export/csv', 
+  checkPermission('view_clientes'),
+  async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const { status, dataInicio, dataFim } = req.query;
+      
+      let query = `
+        SELECT id, nome, email, telefone, status, data_cadastro
+        FROM clientes
+        WHERE 1=1
+      `;
+      const queryParams = [];
+      
+      if (status) {
+        queryParams.push(status);
+        query += ` AND status = $${queryParams.length}`;
+      }
+      
+      if (dataInicio) {
+        queryParams.push(dataInicio);
+        query += ` AND data_cadastro >= $${queryParams.length}`;
+      }
+      
+      if (dataFim) {
+        queryParams.push(dataFim);
+        query += ` AND data_cadastro <= $${queryParams.length}`;
+      }
+      
+      query += ` ORDER BY data_cadastro DESC`;
+      
+      const result = await pool.query(query, queryParams);
+      
+      const { headers, data } = ExportUtils.formatDataForExport('clientes', result.rows);
+      
+      const filename = `clientes_${new Date().toISOString().split('T')[0]}`;
+      
+      ExportUtils.exportToCSV(data, headers, filename, res);
+      
+      loggers.system.info('Clientes CSV export', {
+        userId: req.user?.id,
+        recordCount: result.rows.length,
+        filters: { status, dataInicio, dataFim },
+        duration: Date.now() - startTime
+      });
+      
+    } catch (error) {
+      loggers.error.error('Clientes CSV export error', {
+        error: error.message,
+        userId: req.user?.id,
+        filters: req.query
+      });
+      res.status(500).send('Erro ao exportar dados');
+    }
+  }
+);
+
+// Exportar clientes para Excel
+router.get('/export/excel', 
+  checkPermission('view_clientes'),
+  async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+      const { status, dataInicio, dataFim } = req.query;
+      
+      let query = `
+        SELECT id, nome, email, telefone, status, data_cadastro
+        FROM clientes
+        WHERE 1=1
+      `;
+      const queryParams = [];
+      
+      if (status) {
+        queryParams.push(status);
+        query += ` AND status = $${queryParams.length}`;
+      }
+      
+      if (dataInicio) {
+        queryParams.push(dataInicio);
+        query += ` AND data_cadastro >= $${queryParams.length}`;
+      }
+      
+      if (dataFim) {
+        queryParams.push(dataFim);
+        query += ` AND data_cadastro <= $${queryParams.length}`;
+      }
+      
+      query += ` ORDER BY data_cadastro DESC`;
+      
+      const result = await pool.query(query, queryParams);
+      
+      const { headers, data } = ExportUtils.formatDataForExport('clientes', result.rows);
+      
+      const filename = `clientes_${new Date().toISOString().split('T')[0]}`;
+      
+      ExportUtils.exportToExcel(data, headers, filename, res, {
+        sheetName: 'Clientes',
+        includeStats: true
+      });
+      
+      loggers.system.info('Clientes Excel export', {
+        userId: req.user?.id,
+        recordCount: result.rows.length,
+        filters: { status, dataInicio, dataFim },
+        duration: Date.now() - startTime
+      });
+      
+    } catch (error) {
+      loggers.error.error('Clientes Excel export error', {
+        error: error.message,
+        userId: req.user?.id,
+        filters: req.query
+      });
+      res.status(500).send('Erro ao exportar dados');
     }
   }
 );

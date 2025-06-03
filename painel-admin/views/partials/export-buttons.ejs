@@ -1,0 +1,84 @@
+<!-- Botões de Export Reutilizáveis -->
+<div class="btn-group export-buttons" data-module="<%= moduleName %>">
+  <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+    <i class="fas fa-download"></i> Exportar
+  </button>
+  <ul class="dropdown-menu">
+    <li>
+      <a class="dropdown-item" href="#" onclick="exportModuleData('<%= moduleName %>', 'csv')">
+        <i class="fas fa-file-csv text-success"></i> Exportar CSV
+      </a>
+    </li>
+    <li>
+      <a class="dropdown-item" href="#" onclick="exportModuleData('<%= moduleName %>', 'excel')">
+        <i class="fas fa-file-excel text-primary"></i> Exportar Excel
+      </a>
+    </li>
+    <li><hr class="dropdown-divider"></li>
+    <li>
+      <a class="dropdown-item" href="#" onclick="openCustomExportModal('<%= moduleName %>')">
+        <i class="fas fa-cog text-warning"></i> Relatório Personalizado
+      </a>
+    </li>
+  </ul>
+</div>
+
+<script>
+// Função global para export de módulos
+function exportModuleData(moduleName, format) {
+  // Capturar filtros do formulário de pesquisa
+  const searchForm = document.querySelector('.search-form, form[method="GET"]');
+  const params = new URLSearchParams();
+  
+  if (searchForm) {
+    const formData = new FormData(searchForm);
+    for (let [key, value] of formData.entries()) {
+      if (value && value.trim() !== '') {
+        params.append(key, value);
+      }
+    }
+  }
+  
+  // Construir URL de export
+  const exportUrl = `/admin/${moduleName}/export/${format}?${params.toString()}`;
+  
+  // Mostrar loading
+  showExportLoading();
+  
+  // Criar link temporário para download
+  const link = document.createElement('a');
+  link.href = exportUrl;
+  link.download = '';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // Esconder loading após delay
+  setTimeout(hideExportLoading, 2000);
+}
+
+// Função para relatório personalizado
+function openCustomExportModal(moduleName) {
+  // Implementar modal para seleção de campos e filtros personalizados
+  $('#customExportModal').modal('show');
+  $('#customExportModal').data('module', moduleName);
+}
+
+// Funções de loading
+function showExportLoading() {
+  const button = document.querySelector('.export-buttons .dropdown-toggle');
+  const originalText = button.innerHTML;
+  button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exportando...';
+  button.disabled = true;
+  button.dataset.originalText = originalText;
+}
+
+function hideExportLoading() {
+  const button = document.querySelector('.export-buttons .dropdown-toggle');
+  if (button.dataset.originalText) {
+    button.innerHTML = button.dataset.originalText;
+    button.disabled = false;
+    delete button.dataset.originalText;
+  }
+}
+</script>

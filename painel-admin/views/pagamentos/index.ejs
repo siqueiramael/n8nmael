@@ -16,15 +16,13 @@
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
           <i class="fas fa-credit-card"></i> Gerenciamento de Pagamentos
-          <span class="permission-badge badge bg-info ms-2" data-permission="pagamentos_visualizar">
-            <i class="fas fa-eye"></i> Visualização
-          </span>
         </h2>
         <div>
-          <a href="/admin/pagamentos/relatorio" class="btn btn-outline-secondary me-2" data-permission="pagamentos_relatorios">
-            <i class="fas fa-chart-bar"></i> Relatório Financeiro
+          <%- include('../partials/export-buttons', { moduleName: 'pagamentos' }) %>
+          <a href="/admin/pagamentos/relatorio" class="btn btn-outline-secondary me-2">
+            <i class="fas fa-chart-line"></i> Relatórios
           </a>
-          <a href="/admin/pagamentos/novo" class="btn btn-primary" data-permission="pagamentos_criar">
+          <a href="/admin/pagamentos/novo" class="btn btn-primary">
             <i class="fas fa-plus"></i> Novo Pagamento
           </a>
         </div>
@@ -77,3 +75,6 @@
 </div>
 
 <%- include('../partials/footer') %>
+
+<!-- No final da página -->
+<%- include('../partials/custom-export-modal') %>

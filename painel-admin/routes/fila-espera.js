@@ -3,6 +3,8 @@ import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
 import { loggers } from '../utils/logger.js';
+import { ExportUtils } from '../utils/export.js';
+import { createExportMiddleware } from '../middleware/export.js';
 
 const router = express.Router();
 
@@ -479,5 +481,57 @@ router.get('/relatorio', async (req, res) => {
     res.status(500).send('Erro ao gerar relatório');
   }
 });
+
+// Função para construir query de fila de espera
+function buildFilaEsperaQuery(filters) {
+  let query = `
+    SELECT 
+      fe.id,
+      fe.cliente_id,
+      c.nome as cliente_nome,
+      c.telefone as cliente_telefone,
+      fe.tipo_local,
+      fe.data_interesse,
+      fe.observacoes,
+      fe.status,
+      fe.data_criacao,
+      fe.data_atualizacao
+    FROM fila_espera fe
+    JOIN clientes c ON fe.cliente_id = c.id
+  `;
+  
+  const params = [];
+  const conditions = [];
+  
+  if (filters.status) {
+    conditions.push(`fe.status = $${params.length + 1}`);
+    params.push(filters.status);
+  }
+  
+  if (filters.tipo_local) {
+    conditions.push(`fe.tipo_local = $${params.length + 1}`);
+    params.push(filters.tipo_local);
+  }
+  
+  if (filters.data_interesse) {
+    conditions.push(`fe.data_interesse = $${params.length + 1}`);
+    params.push(filters.data_interesse);
+  }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY fe.data_criacao DESC';
+  
+  return { query, params };
+}
+
+// Criar middleware de exportação
+const exportMiddleware = createExportMiddleware('fila_espera', buildFilaEsperaQuery, 'fila_espera_visualizar');
+
+// Rotas de exportação
+router.get('/export/csv', checkPermission('fila_espera_visualizar'), exportMiddleware.csv);
+router.get('/export/excel', checkPermission('fila_espera_visualizar'), exportMiddleware.excel);
 
 export default router;
