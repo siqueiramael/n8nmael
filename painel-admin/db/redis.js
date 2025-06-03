@@ -1,4 +1,5 @@
 import { createClient } from 'redis';
+import { loggers } from '../utils/logger.js';
 
 // Configuração do cliente Redis
 const redisClient = createClient({
@@ -8,108 +9,226 @@ const redisClient = createClient({
   database: process.env.REDIS_DB || 0
 });
 
-// Conectar ao Redis
+// Conectar ao Redis com logs Winston
 redisClient.on('error', (err) => {
-  console.error('Erro de conexão Redis:', err);
+  loggers.system.error('Redis connection error', {
+    error: err.message,
+    stack: err.stack,
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379
+  });
 });
 
 redisClient.on('connect', () => {
-  console.log('✅ Conectado ao Redis');
+  loggers.system.info('Redis connected successfully', {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379,
+    database: process.env.REDIS_DB || 0
+  });
+});
+
+redisClient.on('ready', () => {
+  loggers.system.info('Redis client ready', {
+    status: 'ready'
+  });
+});
+
+redisClient.on('end', () => {
+  loggers.system.warn('Redis connection ended', {
+    status: 'disconnected'
+  });
 });
 
 // Conectar
 await redisClient.connect();
 
-// Classe para gerenciar cache
+// Classe para gerenciar cache com logs Winston
 class CacheManager {
   // Cache de consultas com TTL
-  static async setCache(key, data, ttl = 300) { // 5 minutos padrão
+  static async setCache(key, data, ttl = 300) {
+    const startTime = Date.now();
+    
     try {
       await redisClient.setEx(key, ttl, JSON.stringify(data));
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.set(key, ttl, null, {
+        duration,
+        dataSize: JSON.stringify(data).length
+      });
+      
       return true;
     } catch (error) {
-      console.error('Erro ao definir cache:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.error('Cache set error', {
+        key,
+        error: error.message,
+        stack: error.stack,
+        duration,
+        ttl
+      });
+      
       return false;
     }
   }
 
   // Recuperar cache
   static async getCache(key) {
+    const startTime = Date.now();
+    
     try {
       const data = await redisClient.get(key);
-      return data ? JSON.parse(data) : null;
+      const duration = Date.now() - startTime;
+      
+      if (data) {
+        loggers.cache.hit(key, null, {
+          duration,
+          dataSize: data.length
+        });
+        return JSON.parse(data);
+      } else {
+        loggers.cache.miss(key, null, {
+          duration
+        });
+        return null;
+      }
     } catch (error) {
-      console.error('Erro ao recuperar cache:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.error('Cache get error', {
+        key,
+        error: error.message,
+        stack: error.stack,
+        duration
+      });
+      
       return null;
     }
   }
 
   // Invalidar cache específico
   static async deleteCache(key) {
+    const startTime = Date.now();
+    
     try {
-      await redisClient.del(key);
-      return true;
+      const result = await redisClient.del(key);
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.invalidate(key, null, {
+        duration,
+        keysDeleted: result
+      });
+      
+      return result;
     } catch (error) {
-      console.error('Erro ao deletar cache:', error);
-      return false;
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.error('Cache delete error', {
+        key,
+        error: error.message,
+        stack: error.stack,
+        duration
+      });
+      
+      return 0;
     }
   }
 
-  // Invalidar cache por padrão
+  // Invalidar múltiplas chaves por padrão
   static async deleteCachePattern(pattern) {
+    const startTime = Date.now();
+    
     try {
       const keys = await redisClient.keys(pattern);
       if (keys.length > 0) {
-        await redisClient.del(keys);
+        const result = await redisClient.del(keys);
+        const duration = Date.now() - startTime;
+        
+        loggers.cache.invalidate(pattern, null, {
+          duration,
+          keysFound: keys.length,
+          keysDeleted: result,
+          keys: keys.slice(0, 10) // Log apenas as primeiras 10 chaves
+        });
+        
+        return result;
       }
+      
+      const duration = Date.now() - startTime;
+      loggers.cache.invalidate(pattern, null, {
+        duration,
+        keysFound: 0,
+        keysDeleted: 0
+      });
+      
+      return 0;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.error('Cache pattern delete error', {
+        pattern,
+        error: error.message,
+        stack: error.stack,
+        duration
+      });
+      
+      return 0;
+    }
+  }
+
+  // Limpar todo o cache
+  static async clearAll() {
+    const startTime = Date.now();
+    
+    try {
+      await redisClient.flushDb();
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.invalidate('*', null, {
+        duration,
+        operation: 'FLUSH_ALL'
+      });
+      
       return true;
     } catch (error) {
-      console.error('Erro ao deletar cache por padrão:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.error('Cache flush error', {
+        error: error.message,
+        stack: error.stack,
+        duration
+      });
+      
       return false;
     }
   }
 
-  // Cache de sessões
-  static async setSession(sessionId, userData, ttl = 86400) { // 24 horas
+  // Estatísticas do cache
+  static async getStats() {
+    const startTime = Date.now();
+    
     try {
-      await redisClient.setEx(`session:${sessionId}`, ttl, JSON.stringify(userData));
-      return true;
+      const info = await redisClient.info('memory');
+      const keyspace = await redisClient.info('keyspace');
+      const duration = Date.now() - startTime;
+      
+      loggers.system.info('Cache stats retrieved', {
+        duration,
+        info: info.substring(0, 200) // Limitar tamanho do log
+      });
+      
+      return { info, keyspace };
     } catch (error) {
-      console.error('Erro ao definir sessão:', error);
-      return false;
-    }
-  }
-
-  // Recuperar sessão
-  static async getSession(sessionId) {
-    try {
-      const data = await redisClient.get(`session:${sessionId}`);
-      return data ? JSON.parse(data) : null;
-    } catch (error) {
-      console.error('Erro ao recuperar sessão:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.cache.error('Cache stats error', {
+        error: error.message,
+        stack: error.stack,
+        duration
+      });
+      
       return null;
-    }
-  }
-
-  // Deletar sessão
-  static async deleteSession(sessionId) {
-    try {
-      await redisClient.del(`session:${sessionId}`);
-      return true;
-    } catch (error) {
-      console.error('Erro ao deletar sessão:', error);
-      return false;
-    }
-  }
-
-  // Renovar TTL da sessão
-  static async renewSession(sessionId, ttl = 86400) {
-    try {
-      await redisClient.expire(`session:${sessionId}`, ttl);
-      return true;
-    } catch (error) {
-      console.error('Erro ao renovar sessão:', error);
-      return false;
     }
   }
 }

@@ -1,104 +1,288 @@
 import express from 'express';
-import pool from '../db/index.js';
-import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
+import { checkPermission } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
+import { loggers } from '../utils/logger.js';
+import { crudLogger } from '../middleware/logging.js';
 
 const router = express.Router();
 
-// Listar todos os clientes
+// Listar clientes (com cache)
 router.get('/', 
-  cacheMiddleware('clientes_list', 300),
+  checkPermission('clientes', 'read'),
+  cacheMiddleware(300), // 5 minutos
   async (req, res) => {
+    const startTime = Date.now();
+    
     try {
-      const result = await pool.query('SELECT * FROM clientes ORDER BY nome');
-      res.json({ 
+      const pool = req.app.locals.pool;
+      const queryStart = Date.now();
+      
+      const result = await pool.query(`
+        SELECT id, nome, email, telefone, created_at, updated_at 
+        FROM clientes 
+        ORDER BY nome
+      `);
+      
+      const queryDuration = Date.now() - queryStart;
+      loggers.database.query(
+        'SELECT clientes list',
+        queryDuration,
+        req.user.id
+      );
+      
+      const totalDuration = Date.now() - startTime;
+      
+      loggers.access.action(
+        req.user.id,
+        'list',
+        'clientes',
+        req.ip,
+        { count: result.rows.length, duration: totalDuration }
+      );
+      
+      res.render('clientes/index', {
         clientes: result.rows,
         activeMenu: 'clientes'
       });
+      
     } catch (error) {
-      console.error('Erro ao buscar clientes:', error);
-      res.status(500).send('Erro ao buscar dados');
+      loggers.system.error('Error listing clientes', {
+        error: error.message,
+        userId: req.user.id,
+        ip: req.ip
+      });
+      
+      res.status(500).render('error/500', {
+        message: 'Erro ao carregar clientes',
+        error: process.env.NODE_ENV === 'development' ? error : {},
+        activeMenu: 'clientes'
+      });
     }
   }
 );
 
-// Formulário para novo cliente
-router.get('/novo', (req, res) => {
-  res.render('clientes/novo', { activeMenu: 'clientes' });
-});
-
-// Salvar novo cliente
-router.post('/', 
-  invalidateCache(['clientes_*']),
+// Criar cliente
+router.post('/',
+  checkPermission('clientes', 'create'),
+  crudLogger('create', 'cliente'),
   async (req, res) => {
-    const { nome, telefone, telefone_whatsapp, status } = req.body;
+    const { nome, email, telefone } = req.body;
+    const startTime = Date.now();
+    
     try {
-      await pool.query(
-        `INSERT INTO clientes (nome, telefone, telefone_whatsapp, status)
-         VALUES ($1, $2, $3, $4)`,
-        [nome, telefone, telefone_whatsapp || null, status || 'ativo']
+      const pool = req.app.locals.pool;
+      const queryStart = Date.now();
+      
+      const result = await pool.query(`
+        INSERT INTO clientes (nome, email, telefone) 
+        VALUES ($1, $2, $3) 
+        RETURNING id
+      `, [nome, email, telefone]);
+      
+      const queryDuration = Date.now() - queryStart;
+      loggers.database.query(
+        'INSERT cliente',
+        queryDuration,
+        req.user.id,
+        [nome, email, telefone]
       );
-      res.redirect('/admin/clientes');
+      
+      // Invalidar cache
+      await invalidateCache('clientes', req.user.id);
+      
+      const totalDuration = Date.now() - startTime;
+      
+      loggers.access.action(
+        req.user.id,
+        'create',
+        'cliente',
+        req.ip,
+        {
+          clienteId: result.rows[0].id,
+          nome,
+          email,
+          duration: totalDuration
+        }
+      );
+      
+      res.json({ 
+        success: true, 
+        id: result.rows[0].id,
+        message: 'Cliente criado com sucesso'
+      });
+      
     } catch (error) {
-      console.error('Erro ao inserir cliente:', error);
-      res.status(500).send('Erro ao salvar dados');
+      loggers.system.error('Error creating cliente', {
+        error: error.message,
+        userId: req.user.id,
+        data: { nome, email, telefone },
+        ip: req.ip
+      });
+      
+      res.status(500).json({ 
+        success: false, 
+        message: 'Erro ao criar cliente'
+      });
     }
   }
 );
-
-// Formulário para editar cliente
-router.get('/editar/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM clientes WHERE id = $1', [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).send('Cliente não encontrado');
-    }
-    
-    res.render('clientes/editar', { 
-      cliente: result.rows[0],
-      activeMenu: 'clientes'
-    });
-  } catch (error) {
-    console.error('Erro ao buscar cliente:', error);
-    res.status(500).send('Erro ao buscar dados');
-  }
-});
 
 // Atualizar cliente
-router.put('/editar/:id', 
-  invalidateCache(['clientes_*']),
+router.put('/:id',
+  checkPermission('clientes', 'update'),
+  crudLogger('update', 'cliente'),
   async (req, res) => {
     const { id } = req.params;
-    const { nome, telefone, telefone_whatsapp, status } = req.body;
+    const { nome, email, telefone } = req.body;
+    const startTime = Date.now();
     
     try {
-      await pool.query(
-        `UPDATE clientes 
-         SET nome = $1, telefone = $2, telefone_whatsapp = $3, status = $4, data_atualizacao = NOW()
-         WHERE id = $5`,
-        [nome, telefone, telefone_whatsapp || null, status, id]
+      const pool = req.app.locals.pool;
+      const queryStart = Date.now();
+      
+      const result = await pool.query(`
+        UPDATE clientes 
+        SET nome = $1, email = $2, telefone = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING id
+      `, [nome, email, telefone, id]);
+      
+      const queryDuration = Date.now() - queryStart;
+      loggers.database.query(
+        'UPDATE cliente',
+        queryDuration,
+        req.user.id,
+        [nome, email, telefone, id]
       );
-      res.redirect('/admin/clientes');
+      
+      if (result.rows.length === 0) {
+        loggers.access.action(
+          req.user.id,
+          'update',
+          'cliente',
+          req.ip,
+          { clienteId: id, found: false }
+        );
+        
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Cliente não encontrado'
+        });
+      }
+      
+      // Invalidar cache
+      await invalidateCache('clientes', req.user.id);
+      
+      const totalDuration = Date.now() - startTime;
+      
+      loggers.access.action(
+        req.user.id,
+        'update',
+        'cliente',
+        req.ip,
+        {
+          clienteId: id,
+          changes: { nome, email, telefone },
+          duration: totalDuration
+        }
+      );
+      
+      res.json({ 
+        success: true, 
+        message: 'Cliente atualizado com sucesso'
+      });
+      
     } catch (error) {
-      console.error('Erro ao atualizar cliente:', error);
-      res.status(500).send('Erro ao atualizar dados');
+      loggers.system.error('Error updating cliente', {
+        error: error.message,
+        userId: req.user.id,
+        clienteId: id,
+        data: { nome, email, telefone },
+        ip: req.ip
+      });
+      
+      res.status(500).json({ 
+        success: false, 
+        message: 'Erro ao atualizar cliente'
+      });
     }
   }
 );
 
-// Excluir cliente
-router.delete('/:id', 
-  invalidateCache(['clientes_*']),
+// Deletar cliente
+router.delete('/:id',
+  checkPermission('clientes', 'delete'),
+  crudLogger('delete', 'cliente'),
   async (req, res) => {
     const { id } = req.params;
+    const startTime = Date.now();
+    
     try {
-      await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
-      res.redirect('/admin/clientes');
+      const pool = req.app.locals.pool;
+      const queryStart = Date.now();
+      
+      const result = await pool.query(
+        'DELETE FROM clientes WHERE id = $1 RETURNING id, nome',
+        [id]
+      );
+      
+      const queryDuration = Date.now() - queryStart;
+      loggers.database.query(
+        'DELETE cliente',
+        queryDuration,
+        req.user.id,
+        [id]
+      );
+      
+      if (result.rows.length === 0) {
+        loggers.access.action(
+          req.user.id,
+          'delete',
+          'cliente',
+          req.ip,
+          { clienteId: id, found: false }
+        );
+        
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Cliente não encontrado'
+        });
+      }
+      
+      // Invalidar cache
+      await invalidateCache('clientes', req.user.id);
+      
+      const totalDuration = Date.now() - startTime;
+      
+      loggers.access.action(
+        req.user.id,
+        'delete',
+        'cliente',
+        req.ip,
+        {
+          clienteId: id,
+          nome: result.rows[0].nome,
+          duration: totalDuration
+        }
+      );
+      
+      res.json({ 
+        success: true, 
+        message: 'Cliente deletado com sucesso'
+      });
+      
     } catch (error) {
-      console.error('Erro ao deletar cliente:', error);
-      res.status(500).send('Erro ao deletar dados');
+      loggers.system.error('Error deleting cliente', {
+        error: error.message,
+        userId: req.user.id,
+        clienteId: id,
+        ip: req.ip
+      });
+      
+      res.status(500).json({ 
+        success: false, 
+        message: 'Erro ao deletar cliente'
+      });
     }
   }
 );

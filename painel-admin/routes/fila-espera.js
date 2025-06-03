@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
+import { loggers } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -11,8 +12,16 @@ router.get('/',
   addBreadcrumb('Fila de Espera', '/admin/fila-espera'),
   cacheMiddleware((req) => `fila_espera_list_${JSON.stringify(req.query)}`, 300),
   async (req, res) => {
+    const startTime = Date.now();
+    
     try {
       const { status, data_interesse, tipo_local } = req.query;
+      
+      loggers.access.info('Fila espera list access', {
+        userId: req.user?.id,
+        filters: { status, data_interesse, tipo_local },
+        ip: req.ip
+      });
       
       let query = `
         SELECT fe.*, c.nome as cliente_nome, c.telefone as cliente_telefone
@@ -43,7 +52,24 @@ router.get('/',
       
       query += ` ORDER BY fe.data_criacao ASC`;
       
+      const dbStart = Date.now();
       const result = await pool.query(query, params);
+      const dbDuration = Date.now() - dbStart;
+      
+      loggers.database.query('Fila espera list query', {
+        duration: dbDuration,
+        rowCount: result.rows.length,
+        filters: { status, data_interesse, tipo_local },
+        userId: req.user?.id
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/fila-espera',
+        Date.now() - startTime,
+        200,
+        req.user?.id
+      );
       
       res.json({ 
         filaEspera: result.rows,
@@ -51,7 +77,24 @@ router.get('/',
         activeMenu: 'fila-espera'
       });
     } catch (error) {
-      console.error('Erro ao buscar fila de espera:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.database.error('Fila espera list error', {
+        error: error.message,
+        stack: error.stack,
+        duration,
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/fila-espera',
+        duration,
+        500,
+        req.user?.id
+      );
+      
       res.status(500).send('Erro ao buscar dados');
     }
   }
@@ -62,20 +105,56 @@ router.get('/novo',
   checkPermission('fila_espera_criar'),
   addBreadcrumb('Fila de Espera', '/admin/fila-espera'),
   addBreadcrumb('Novo Item', '/admin/fila-espera/novo'),
-  (req, res) => {
-  try {
-    // Buscar clientes ativos para o formulário
-    const clientesResult = await pool.query('SELECT id, nome, telefone FROM clientes WHERE status = \'ativo\' ORDER BY nome');
+  cacheMiddleware('fila_espera_form_data', 600),
+  async (req, res) => {
+    const startTime = Date.now();
     
-    res.render('fila-espera/novo', { 
-      clientes: clientesResult.rows,
-      activeMenu: 'fila-espera' 
-    });
-  } catch (error) {
-    console.error('Erro ao buscar dados para o formulário:', error);
-    res.status(500).send('Erro ao carregar formulário');
+    try {
+      const dbStart = Date.now();
+      const clientesResult = await pool.query('SELECT id, nome, telefone FROM clientes WHERE status = \'ativo\' ORDER BY nome');
+      const dbDuration = Date.now() - dbStart;
+      
+      loggers.database.query('Fila espera form data', {
+        duration: dbDuration,
+        rowCount: clientesResult.rows.length,
+        userId: req.user?.id
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/fila-espera/novo',
+        Date.now() - startTime,
+        200,
+        req.user?.id
+      );
+      
+      res.json({ 
+        clientes: clientesResult.rows,
+        activeMenu: 'fila-espera' 
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      loggers.database.error('Fila espera form data error', {
+        error: error.message,
+        stack: error.stack,
+        duration,
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/fila-espera/novo',
+        duration,
+        500,
+        req.user?.id
+      );
+      
+      res.status(500).send('Erro ao carregar formulário');
+    }
   }
-});
+);
 
 // Salvar novo item na fila
 router.post('/', 
@@ -105,7 +184,13 @@ router.post('/',
     );
     res.redirect('/admin/fila-espera');
   } catch (error) {
-    console.error('Erro ao inserir item na fila:', error);
+    loggers.error.error('Erro ao inserir item na fila', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      body: req.body,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao salvar dados');
   }
 });
@@ -138,7 +223,13 @@ router.get('/editar/:id',
       activeMenu: 'fila-espera' 
     });
   } catch (error) {
-    console.error('Erro ao buscar item da fila:', error);
+    loggers.error.error('Erro ao buscar item da fila', {
+      error: error.message,
+      stack: error.stack,
+      itemId: id,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao carregar dados');
   }
 });
@@ -167,7 +258,14 @@ router.put('/:id',
     );
     res.redirect('/admin/fila-espera');
   } catch (error) {
-    console.error('Erro ao atualizar item da fila:', error);
+    loggers.error.error('Erro ao atualizar item da fila', {
+      error: error.message,
+      stack: error.stack,
+      itemId: id,
+      userId: req.user?.id,
+      body: req.body,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao atualizar dados');
   }
 });
@@ -182,7 +280,13 @@ router.delete('/:id',
     await pool.query('DELETE FROM fila_espera WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (error) {
-    console.error('Erro ao excluir item da fila:', error);
+    loggers.error.error('Erro ao excluir item da fila', {
+      error: error.message,
+      stack: error.stack,
+      itemId: id,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ error: 'Erro ao excluir item' });
   }
 });
@@ -248,9 +352,81 @@ router.post('/processar', async (req, res) => {
       message: `${processados} itens processados com sucesso` 
     });
   } catch (error) {
-    console.error('Erro ao processar fila:', error);
-    res.status(500).json({ error: 'Erro ao processar fila' });
-  }
+    // Substituir todas as 6 ocorrências de console.error por:
+    
+    // Linha 187 - Erro ao inserir item na fila
+    catch (error) {
+    loggers.error.error('Erro ao inserir item na fila de espera', {
+    error: error.message,
+    stack: error.stack,
+    userId: req.user?.id,
+    data: { cliente_telefone, cliente_nome, tipo_local },
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao salvar dados');
+    }
+    
+    // Linha 220 - Erro ao buscar item da fila
+    catch (error) {
+    loggers.error.error('Erro ao buscar item da fila de espera', {
+    error: error.message,
+    stack: error.stack,
+    itemId: req.params.id,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao buscar dados');
+    }
+    
+    // Linha 249 - Erro ao atualizar item da fila
+    catch (error) {
+    loggers.error.error('Erro ao atualizar item da fila de espera', {
+    error: error.message,
+    stack: error.stack,
+    itemId: id,
+    userId: req.user?.id,
+    data: req.body,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao salvar dados');
+    }
+    
+    // Linha 264 - Erro ao excluir item da fila
+    catch (error) {
+    loggers.error.error('Erro ao excluir item da fila de espera', {
+    error: error.message,
+    stack: error.stack,
+    itemId: id,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao excluir dados');
+    }
+    
+    // Linha 330 - Erro ao processar fila
+    catch (error) {
+    loggers.error.error('Erro ao processar fila de espera', {
+    error: error.message,
+    stack: error.stack,
+    itemId: id,
+    action: 'process',
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao processar item');
+    }
+    
+    // Linha 376 - Erro ao gerar relatório
+    catch (error) {
+    loggers.error.error('Erro ao gerar relatório de fila de espera', {
+    error: error.message,
+    stack: error.stack,
+    filters: req.query,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao gerar relatório');
+    }
 });
 
 // Relatório da fila de espera
@@ -294,7 +470,12 @@ router.get('/relatorio', async (req, res) => {
       activeMenu: 'fila-espera'
     });
   } catch (error) {
-    console.error('Erro ao gerar relatório:', error);
+    loggers.error.error('Erro ao gerar relatório de fila de espera', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao gerar relatório');
   }
 });

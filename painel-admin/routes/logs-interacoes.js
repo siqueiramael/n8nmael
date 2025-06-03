@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
+import { loggers } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -11,11 +12,17 @@ router.get('/',
   addBreadcrumb('Logs de Interações', '/admin/logs-interacoes'),
   cacheMiddleware((req) => `logs_interacoes_list_${JSON.stringify(req.query)}`, 600),
   async (req, res) => {
+    const startTime = Date.now();
+    
     try {
-      // Parâmetros de filtro
       const { cliente, tipo, dataInicio, dataFim } = req.query;
       
-      // Construir a consulta com filtros opcionais
+      loggers.access.info('Logs interacoes list access', {
+        userId: req.user?.id,
+        filters: { cliente, tipo, dataInicio, dataFim },
+        ip: req.ip
+      });
+      
       let query = `
         SELECT l.*, c.nome as cliente_nome
         FROM logs_interacoes l
@@ -24,7 +31,6 @@ router.get('/',
       `;
       const queryParams = [];
       
-      // Adicionar filtros se fornecidos
       if (cliente) {
         queryParams.push(`%${cliente}%`);
         query += ` AND c.nome ILIKE $${queryParams.length}`;
@@ -45,10 +51,26 @@ router.get('/',
         query += ` AND l.data_registro <= $${queryParams.length}`;
       }
       
-      // Ordenação
       query += ` ORDER BY l.data_registro DESC`;
       
+      const dbStart = Date.now();
       const result = await pool.query(query, queryParams);
+      const dbDuration = Date.now() - dbStart;
+      
+      loggers.database.query('Logs interacoes list query', {
+        duration: dbDuration,
+        rowCount: result.rows.length,
+        filters: { cliente, tipo, dataInicio, dataFim },
+        userId: req.user?.id
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/logs-interacoes',
+        Date.now() - startTime,
+        200,
+        req.user?.id
+      );
       
       res.json({
         logs: result.rows,
@@ -56,37 +78,105 @@ router.get('/',
         activeMenu: 'logs-interacoes'
       });
     } catch (error) {
-      console.error('Erro ao buscar logs de interações:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.database.error('Logs interacoes list error', {
+        error: error.message,
+        stack: error.stack,
+        duration,
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/logs-interacoes',
+        duration,
+        500,
+        req.user?.id
+      );
+      
       res.status(500).send('Erro ao buscar dados');
     }
   }
 );
 
 // Visualizar detalhes de um log específico
-router.get('/visualizar/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+router.get('/visualizar/:id', 
+  checkPermission('logs_interacoes_visualizar'),
+  async (req, res) => {
+    const startTime = Date.now();
     
-    const result = await pool.query(`
-      SELECT l.*, c.nome as cliente_nome
-      FROM logs_interacoes l
-      LEFT JOIN clientes c ON l.cliente_id = c.id
-      WHERE l.id = $1
-    `, [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).send('Log não encontrado');
+    try {
+      const { id } = req.params;
+      
+      loggers.access.info('Log interacao detail access', {
+        userId: req.user?.id,
+        logId: id,
+        ip: req.ip
+      });
+      
+      const dbStart = Date.now();
+      const result = await pool.query(`
+        SELECT l.*, c.nome as cliente_nome
+        FROM logs_interacoes l
+        LEFT JOIN clientes c ON l.cliente_id = c.id
+        WHERE l.id = $1
+      `, [id]);
+      const dbDuration = Date.now() - dbStart;
+      
+      if (result.rows.length === 0) {
+        loggers.access.warn('Log interacao not found', {
+          userId: req.user?.id,
+          logId: id,
+          ip: req.ip
+        });
+        
+        return res.status(404).send('Log não encontrado');
+      }
+      
+      loggers.database.query('Log interacao detail query', {
+        duration: dbDuration,
+        logId: id,
+        userId: req.user?.id
+      });
+      
+      loggers.performance.request(
+        'GET',
+        `/admin/logs-interacoes/visualizar/${id}`,
+        Date.now() - startTime,
+        200,
+        req.user?.id
+      );
+      
+      res.json({
+        log: result.rows[0],
+        activeMenu: 'logs-interacoes'
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      loggers.database.error('Log interacao detail error', {
+        error: error.message,
+        stack: error.stack,
+        logId: req.params.id,
+        duration,
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      loggers.performance.request(
+        'GET',
+        `/admin/logs-interacoes/visualizar/${req.params.id}`,
+        duration,
+        500,
+        req.user?.id
+      );
+      
+      res.status(500).send('Erro ao buscar detalhes');
     }
-    
-    res.render('logs-interacoes/visualizar', { 
-      log: result.rows[0],
-      activeMenu: 'logs-interacoes'
-    });
-  } catch (error) {
-    console.error('Erro ao buscar detalhes do log:', error);
-    res.status(500).send('Erro ao buscar dados');
   }
-});
+);
 
 // Exportar logs (CSV)
 router.get('/exportar', async (req, res) => {
@@ -152,9 +242,28 @@ router.get('/exportar', async (req, res) => {
     });
     
     res.end();
-  } catch (error) {
-    console.error('Erro ao exportar logs:', error);
+  } // Linha 246 - Erro ao exportar logs
+  catch (error) {
+    loggers.error.error('Erro ao exportar logs de interações', {
+      error: error.message,
+      stack: error.stack,
+      filters: req.query,
+      userId: req.user?.id,
+      duration: Date.now() - startTime
+    });
     res.status(500).send('Erro ao exportar dados');
+  }
+  
+  // Linha 297 - Erro ao gerar relatório de logs
+  catch (error) {
+    loggers.error.error('Erro ao gerar relatório de logs de interações', {
+      error: error.message,
+      stack: error.stack,
+      filters: req.query,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+    res.status(500).send('Erro ao gerar relatório');
   }
 });
 
@@ -204,7 +313,12 @@ router.get('/relatorio', async (req, res) => {
       activeMenu: 'logs-interacoes'
     });
   } catch (error) {
-    console.error('Erro ao gerar relatório de logs:', error);
+    loggers.error.error('Erro ao gerar relatório de logs', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      route: '/relatorio'
+    });
     res.status(500).send('Erro ao gerar relatório');
   }
 });

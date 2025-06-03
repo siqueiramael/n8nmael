@@ -2,6 +2,8 @@ import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
+import { loggers } from '../utils/logger.js';
+import { crudLogger } from '../middleware/logging.js';
 
 const router = express.Router();
 
@@ -11,110 +13,102 @@ router.get('/',
   addBreadcrumb('Quiosques', '/admin/quiosques'),
   cacheMiddleware('quiosques_list', 600),
   async (req, res) => {
+    const startTime = Date.now();
+    
     try {
+      const queryStart = Date.now();
       const result = await pool.query('SELECT * FROM quiosques ORDER BY numero');
+      
+      const queryDuration = Date.now() - queryStart;
+      loggers.database.query(
+        'SELECT quiosques list',
+        queryDuration,
+        req.user.id
+      );
+      
+      const totalDuration = Date.now() - startTime;
+      
+      loggers.access.action(
+        req.user.id,
+        'list',
+        'quiosques',
+        req.ip,
+        { count: result.rows.length, duration: totalDuration }
+      );
+      
       res.json({ 
         quiosques: result.rows,
         activeMenu: 'quiosques'
       });
+      
     } catch (error) {
-      console.error('Erro ao buscar quiosques:', error);
+      loggers.system.error('Error listing quiosques', {
+        error: error.message,
+        userId: req.user.id,
+        ip: req.ip
+      });
+      
       res.status(500).send('Erro ao buscar dados');
     }
   }
 );
 
-// Formulário para novo quiosque
-router.get('/novo', 
-  checkPermission('quiosques_criar'),
-  addBreadcrumb('Quiosques', '/admin/quiosques'),
-  addBreadcrumb('Novo Quiosque', '/admin/quiosques/novo'),
-  (req, res) => {
-  res.render('quiosques/novo', { activeMenu: 'quiosques' });
-});
-
 // Salvar novo quiosque
 router.post('/', 
   checkPermission('quiosques_criar'),
-  invalidateCache(['quiosques_*']),
+  crudLogger('create', 'quiosque'),
   async (req, res) => {
     const { numero, descricao, posicao } = req.body;
+    const startTime = Date.now();
+    
     try {
-      await pool.query(
+      const queryStart = Date.now();
+      
+      const result = await pool.query(
         `INSERT INTO quiosques (numero, descricao, posicao)
-         VALUES ($1, $2, $3)`,
+         VALUES ($1, $2, $3) RETURNING id`,
         [numero, descricao || null, posicao || null]
       );
+      
+      const queryDuration = Date.now() - queryStart;
+      loggers.database.query(
+        'INSERT quiosque',
+        queryDuration,
+        req.user.id,
+        [numero, descricao]
+      );
+      
+      // Invalidar cache
+      await invalidateCache(['quiosques_*'], req.user.id);
+      
+      const totalDuration = Date.now() - startTime;
+      
+      loggers.access.action(
+        req.user.id,
+        'create',
+        'quiosque',
+        req.ip,
+        {
+          quiosqueId: result.rows[0].id,
+          numero,
+          descricao,
+          duration: totalDuration
+        }
+      );
+      
       res.redirect('/admin/quiosques');
+      
     } catch (error) {
-      console.error('Erro ao inserir quiosque:', error);
-      res.status(500).send('Erro ao salvar dados');
+      loggers.system.error('Error creating quiosque', {
+        error: error.message,
+        userId: req.user.id,
+        data: { numero, descricao },
+        ip: req.ip
+      });
+      
+      res.status(500).send('Erro ao inserir quiosque');
     }
   }
 );
-
-// Formulário para editar quiosque
-router.get('/editar/:id', 
-  checkPermission('quiosques_editar'),
-  addBreadcrumb('Quiosques', '/admin/quiosques'),
-  addBreadcrumb('Editar Quiosque', null),
-  async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM quiosques WHERE id = $1', [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).send('Quiosque não encontrado');
-    }
-    
-    res.render('quiosques/editar', { 
-      quiosque: result.rows[0],
-      activeMenu: 'quiosques'
-    });
-  } catch (error) {
-    console.error('Erro ao buscar quiosque:', error);
-    res.status(500).send('Erro ao buscar dados');
-  }
-});
-
-// Atualizar quiosque
-router.put('/:id', 
-  checkPermission('quiosques_editar'),
-  invalidateCache(['quiosques_*']),
-  async (req, res) => {
-  const { id } = req.params;
-  const { numero, descricao, posicao } = req.body;
-  
-  try {
-    await pool.query(
-      `UPDATE quiosques 
-       SET numero = $1, descricao = $2, posicao = $3, data_atualizacao = NOW()
-       WHERE id = $4`,
-      [numero, descricao || null, posicao || null, id]
-    );
-    res.redirect('/admin/quiosques');
-  } catch (error) {
-    console.error('Erro ao atualizar quiosque:', error);
-    res.status(500).send('Erro ao atualizar dados');
-  }
-});
-
-// Excluir quiosque
-router.delete('/:id', 
-  checkPermission('quiosques_excluir'),
-  invalidateCache(['quiosques_*']),
-  async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query(
-      `DELETE FROM quiosques WHERE id = $1`,
-      [id]
-    );
-    res.redirect('/admin/quiosques');
-  } catch (error) {
-    console.error('Erro ao excluir quiosque:', error);
-    res.status(500).send('Erro ao excluir dados');
-  }
-});
 
 export default router;

@@ -60,7 +60,13 @@ export const requireAuth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Erro de autenticação:', error);
+    loggers.error.error('Erro de autenticação', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      url: req.originalUrl
+    });
     res.redirect('/admin/login');
   }
 };
@@ -75,12 +81,23 @@ export const logout = async (req, res) => {
       
       // Remover do cache
       await CacheManager.deleteSession(sessionKey);
+      
+      loggers.audit.logout('user_logout', {
+        userId: decoded.userId,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
     }
     
     res.clearCookie('authToken');
     res.redirect('/admin/login');
   } catch (error) {
-    console.error('Erro no logout:', error);
+    loggers.error.error('Erro no logout', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
     res.clearCookie('authToken');
     res.redirect('/admin/login');
   }

@@ -4,7 +4,13 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "NODE_ENV=development LOG_LEVEL=debug node index.js",
+    "prod": "NODE_ENV=production LOG_LEVEL=info node index.js",
+    "logs:tail": "tail -f logs/combined.log",
+    "logs:error": "tail -f logs/error.log",
+    "logs:access": "tail -f logs/access.log",
+    "logs:performance": "tail -f logs/performance.log"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -14,6 +20,7 @@
     "jsonwebtoken": "^9.0.0",
     "bcrypt": "^5.1.0",
     "cookie-parser": "^1.4.6",
-    "redis": "^4.6.0"
+    "redis": "^4.6.0",
+    "winston": "^3.11.0"
   }
 }

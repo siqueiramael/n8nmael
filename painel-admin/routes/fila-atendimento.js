@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
+import { loggers } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -11,8 +12,16 @@ router.get('/',
   addBreadcrumb('Fila de Atendimento', '/admin/fila-atendimento'),
   cacheMiddleware((req) => `fila_atendimento_list_${JSON.stringify(req.query)}`, 300),
   async (req, res) => {
+    const startTime = Date.now();
+    
     try {
       const { status, data_inicio, data_fim } = req.query;
+      
+      loggers.access.info('Fila atendimento list access', {
+        userId: req.user?.id,
+        filters: { status, data_inicio, data_fim },
+        ip: req.ip
+      });
       
       let query = `
         SELECT *,
@@ -39,7 +48,24 @@ router.get('/',
       
       query += ' ORDER BY data_solicitacao DESC';
       
+      const dbStart = Date.now();
       const result = await pool.query(query, params);
+      const dbDuration = Date.now() - dbStart;
+      
+      loggers.database.query('Fila atendimento list query', {
+        duration: dbDuration,
+        rowCount: result.rows.length,
+        filters: { status, data_inicio, data_fim },
+        userId: req.user?.id
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/fila-atendimento',
+        Date.now() - startTime,
+        200,
+        req.user?.id
+      );
       
       res.json({ 
         atendimentos: result.rows,
@@ -47,7 +73,24 @@ router.get('/',
         activeMenu: 'fila-atendimento'
       });
     } catch (error) {
-      console.error('Erro ao buscar fila de atendimento:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.database.error('Fila atendimento list error', {
+        error: error.message,
+        stack: error.stack,
+        duration,
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/fila-atendimento',
+        duration,
+        500,
+        req.user?.id
+      );
+      
       res.status(500).send('Erro ao buscar dados');
     }
   }
@@ -69,20 +112,70 @@ router.post('/',
   checkPermission('fila_atendimento_criar'),
   invalidateCache(['fila_atendimento_*']),
   async (req, res) => {
-  try {
-    const { cliente_telefone, cliente_nome, contexto_conversa } = req.body;
+    const startTime = Date.now();
     
-    await pool.query(
-      'INSERT INTO fila_atendimento (cliente_telefone, cliente_nome, contexto_conversa) VALUES ($1, $2, $3)',
-      [cliente_telefone, cliente_nome, contexto_conversa]
-    );
-    
-    res.redirect('/admin/fila-atendimento?success=created');
-  } catch (error) {
-    console.error('Erro ao criar solicitação:', error);
-    res.status(500).send('Erro ao criar solicitação');
+    try {
+      const { cliente_telefone, cliente_nome, contexto_conversa } = req.body;
+      
+      loggers.access.info('Fila atendimento creation attempt', {
+        userId: req.user?.id,
+        data: { cliente_telefone, cliente_nome, contexto_conversa },
+        ip: req.ip
+      });
+      
+      const dbStart = Date.now();
+      await pool.query(
+        'INSERT INTO fila_atendimento (cliente_telefone, cliente_nome, contexto_conversa) VALUES ($1, $2, $3)',
+        [cliente_telefone, cliente_nome, contexto_conversa]
+      );
+      const dbDuration = Date.now() - dbStart;
+      
+      loggers.database.query('Fila atendimento insert', {
+        duration: dbDuration,
+        table: 'fila_atendimento',
+        operation: 'INSERT',
+        userId: req.user?.id
+      });
+      
+      loggers.system.info('Fila atendimento created successfully', {
+        userId: req.user?.id,
+        cliente_telefone,
+        cliente_nome
+      });
+      
+      loggers.performance.request(
+        'POST',
+        '/admin/fila-atendimento',
+        Date.now() - startTime,
+        302,
+        req.user?.id
+      );
+      
+      res.redirect('/admin/fila-atendimento?success=created');
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      loggers.database.error('Fila atendimento creation error', {
+        error: error.message,
+        stack: error.stack,
+        data: req.body,
+        duration,
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      loggers.performance.request(
+        'POST',
+        '/admin/fila-atendimento',
+        duration,
+        500,
+        req.user?.id
+      );
+      
+      res.status(500).send('Erro ao criar solicitação');
+    }
   }
-});
+);
 
 // Formulário para editar solicitação
 router.get('/editar/:id', 
@@ -103,7 +196,13 @@ router.get('/editar/:id',
       activeMenu: 'fila-atendimento' 
     });
   } catch (error) {
-    console.error('Erro ao buscar solicitação:', error);
+    loggers.error.error('Erro ao buscar solicitação de atendimento', {
+      error: error.message,
+      stack: error.stack,
+      solicitacaoId: id,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao buscar dados');
   }
 });
@@ -140,7 +239,14 @@ router.put('/:id',
     
     res.redirect('/admin/fila-atendimento?success=updated');
   } catch (error) {
-    console.error('Erro ao atualizar solicitação:', error);
+    loggers.error.error('Erro ao atualizar solicitação de atendimento', {
+      error: error.message,
+      stack: error.stack,
+      solicitacaoId: id,
+      userId: req.user?.id,
+      body: req.body,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao atualizar solicitação');
   }
 });
@@ -157,7 +263,13 @@ router.post('/iniciar/:id', async (req, res) => {
     
     res.redirect('/admin/fila-atendimento?success=started');
   } catch (error) {
-    console.error('Erro ao iniciar atendimento:', error);
+    loggers.error.error('Erro ao iniciar atendimento', {
+      error: error.message,
+      stack: error.stack,
+      atendimentoId: id,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao iniciar atendimento');
   }
 });
@@ -174,7 +286,13 @@ router.post('/finalizar/:id', async (req, res) => {
     
     res.redirect('/admin/fila-atendimento?success=finished');
   } catch (error) {
-    console.error('Erro ao finalizar atendimento:', error);
+    loggers.error.error('Erro ao finalizar atendimento', {
+      error: error.message,
+      stack: error.stack,
+      atendimentoId: id,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao finalizar atendimento');
   }
 });
@@ -212,7 +330,14 @@ router.put('/:id/status',
     
     res.redirect('/admin/fila-atendimento?success=updated');
   } catch (error) {
-    console.error('Erro ao atualizar solicitação:', error);
+    loggers.error.error('Erro ao atualizar solicitação', {
+      error: error.message,
+      stack: error.stack,
+      solicitacaoId: id,
+      userId: req.user?.id,
+      data: req.body,
+      duration: Date.now() - startTime
+    });
     res.status(500).send('Erro ao atualizar solicitação');
   }
 });
@@ -227,7 +352,13 @@ router.delete('/:id',
     await pool.query('DELETE FROM fila_atendimento WHERE id = $1', [id]);
     res.redirect('/admin/fila-atendimento?success=deleted');
   } catch (error) {
-    console.error('Erro ao excluir solicitação:', error);
+    loggers.error.error('Erro ao excluir solicitação de atendimento', {
+      error: error.message,
+      stack: error.stack,
+      solicitacaoId: id,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).send('Erro ao excluir solicitação');
   }
 });
@@ -279,8 +410,93 @@ router.get('/relatorio', async (req, res) => {
       activeMenu: 'fila-atendimento'
     });
   } catch (error) {
-    console.error('Erro ao gerar relatório:', error);
+    // Substituir todas as 7 ocorrências de console.error por:
+    
+    // Linha 199 - Erro ao buscar solicitação
+    catch (error) {
+    loggers.error.error('Erro ao buscar solicitação', {
+    error: error.message,
+    stack: error.stack,
+    solicitacaoId: req.params.id,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao buscar dados');
+    }
+    
+    // Linha 236 - Erro ao atualizar solicitação
+    catch (error) {
+    loggers.error.error('Erro ao atualizar solicitação', {
+    error: error.message,
+    stack: error.stack,
+    solicitacaoId: id,
+    userId: req.user?.id,
+    data: req.body,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao salvar dados');
+    }
+    
+    // Linha 253 - Erro ao iniciar atendimento
+    catch (error) {
+    loggers.error.error('Erro ao iniciar atendimento', {
+    error: error.message,
+    stack: error.stack,
+    solicitacaoId: id,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao iniciar atendimento');
+    }
+    
+    // Linha 270 - Erro ao finalizar atendimento
+    catch (error) {
+    loggers.error.error('Erro ao finalizar atendimento', {
+    error: error.message,
+    stack: error.stack,
+    solicitacaoId: id,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao finalizar atendimento');
+    }
+    
+    // Linha 308 - Erro ao atualizar solicitação
+    catch (error) {
+    loggers.error.error('Erro ao atualizar status da solicitação', {
+    error: error.message,
+    stack: error.stack,
+    solicitacaoId: id,
+    newStatus: status,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao atualizar dados');
+    }
+    
+    // Linha 323 - Erro ao excluir solicitação
+    catch (error) {
+    loggers.error.error('Erro ao excluir solicitação', {
+    error: error.message,
+    stack: error.stack,
+    solicitacaoId: id,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
+    res.status(500).send('Erro ao excluir dados');
+    }
+    
+    // Linha 375 - Erro ao gerar relatório
+    catch (error) {
+    loggers.error.error('Erro ao gerar relatório de atendimento', {
+    error: error.message,
+    stack: error.stack,
+    filters: req.query,
+    userId: req.user?.id,
+    duration: Date.now() - startTime
+    });
     res.status(500).send('Erro ao gerar relatório');
+    }
   }
 });
 

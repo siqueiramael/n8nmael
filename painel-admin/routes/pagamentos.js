@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db/index.js';
 import { checkPermission, addBreadcrumb } from '../middleware/permissions.js';
 import { cacheMiddleware, invalidateCache } from '../middleware/cache.js';
+import { loggers } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -11,7 +12,15 @@ router.get('/',
   addBreadcrumb([{ title: 'Financeiro', icon: 'fas fa-dollar-sign' }, { title: 'Pagamentos', icon: 'fas fa-credit-card' }]),
   cacheMiddleware('pagamentos_list', 300),
   async (req, res) => {
+    const startTime = Date.now();
+    
     try {
+      loggers.access.info('Pagamentos list access', {
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      const dbStart = Date.now();
       const result = await pool.query(`
         SELECT p.*, a.data_agendamento, c.nome as cliente_nome,
                CONCAT(a.tipo_local, ' ', COALESCE(q.numero::text, a.numero::text)) as local_info
@@ -21,12 +30,45 @@ router.get('/',
         LEFT JOIN quiosques q ON a.quiosque_id = q.id
         ORDER BY p.data_criacao DESC
       `);
+      const dbDuration = Date.now() - dbStart;
+      
+      loggers.database.query('Pagamentos list query', {
+        duration: dbDuration,
+        rowCount: result.rows.length,
+        userId: req.user?.id
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/pagamentos',
+        Date.now() - startTime,
+        200,
+        req.user?.id
+      );
+      
       res.json({ 
         pagamentos: result.rows,
         activeMenu: 'pagamentos'
       });
     } catch (error) {
-      console.error('Erro ao buscar pagamentos:', error);
+      const duration = Date.now() - startTime;
+      
+      loggers.database.error('Pagamentos list error', {
+        error: error.message,
+        stack: error.stack,
+        duration,
+        userId: req.user?.id,
+        ip: req.ip
+      });
+      
+      loggers.performance.request(
+        'GET',
+        '/admin/pagamentos',
+        duration,
+        500,
+        req.user?.id
+      );
+      
       res.status(500).send('Erro ao buscar dados');
     }
   }
@@ -54,7 +96,12 @@ router.get('/novo',
         activeMenu: 'pagamentos'
       });
     } catch (error) {
-      console.error('Erro ao buscar agendamentos:', error);
+      loggers.error.error('Erro ao buscar agendamentos para pagamento', {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user?.id,
+        ip: req.ip
+      });
       res.status(500).send('Erro ao buscar dados');
     }
   }
@@ -74,7 +121,14 @@ router.post('/',
       );
       res.redirect('/admin/pagamentos');
     } catch (error) {
-      console.error('Erro ao inserir pagamento:', error);
+      loggers.error.error('Erro ao inserir pagamento', {
+        error: error.message,
+        stack: error.stack,
+        agendamentoId: agendamento_id,
+        userId: req.user?.id,
+        body: req.body,
+        ip: req.ip
+      });
       res.status(500).send('Erro ao salvar dados');
     }
   }
@@ -106,7 +160,13 @@ router.get('/editar/:id',
         activeMenu: 'pagamentos'
       });
     } catch (error) {
-      console.error('Erro ao buscar pagamento:', error);
+      loggers.error.error('Erro ao buscar pagamento', {
+        error: error.message,
+        stack: error.stack,
+        pagamentoId: id,
+        userId: req.user?.id,
+        ip: req.ip
+      });
       res.status(500).send('Erro ao buscar dados');
     }
   }
@@ -127,7 +187,15 @@ router.put('/:id',
       );
       res.redirect('/admin/pagamentos');
     } catch (error) {
-      console.error('Erro ao atualizar pagamento:', error);
+      loggers.error.error('Erro ao atualizar pagamento', {
+        error: error.message,
+        stack: error.stack,
+        pagamentoId: id,
+        userId: req.user?.id,
+        timestamp: new Date().toISOString(),
+        route: '/admin/pagamentos/atualizar',
+        method: 'POST'
+      });
       res.status(500).send('Erro ao salvar dados');
     }
   }
@@ -148,7 +216,15 @@ router.delete('/:id',
       );
       res.redirect('/admin/pagamentos');
     } catch (error) {
-      console.error('Erro ao atualizar pagamento:', error);
+      loggers.error.error('Erro ao atualizar pagamento', {
+        error: error.message,
+        stack: error.stack,
+        pagamentoId: id,
+        userId: req.user?.id,
+        timestamp: new Date().toISOString(),
+        route: '/admin/pagamentos/atualizar',
+        method: 'POST'
+      });
       res.status(500).send('Erro ao salvar dados');
     }
   }
@@ -193,7 +269,13 @@ router.get('/relatorio',
         activeMenu: 'pagamentos'
       });
     } catch (error) {
-      console.error('Erro ao gerar relatório:', error);
+      loggers.error.error('Erro ao gerar relatório de pagamentos', {
+        error: error.message,
+        stack: error.stack,
+        filters: req.query,
+        userId: req.user?.id,
+        ip: req.ip
+      });
       res.status(500).send('Erro ao gerar relatório');
     }
   }

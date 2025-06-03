@@ -153,7 +153,24 @@
           }
         })
         .catch(error => {
-          console.error('Erro:', error);
+          // Log estruturado para o backend
+          fetch('/admin/logs-interacoes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              tipo: 'erro_frontend',
+              contexto: 'exclusao_item_fila',
+              detalhes: {
+                error: error.message,
+                stack: error.stack,
+                url: window.location.href,
+                userAgent: navigator.userAgent
+              }
+            })
+          }).catch(() => {}); // Silenciar erros do log
+          
           alert('Erro ao excluir item');
         });
       }
@@ -173,12 +190,54 @@
             alert(data.message);
             location.reload();
           } else {
+            // Log estruturado para o backend
+            fetch('/admin/logs-interacoes', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                tipo: 'erro_frontend',
+                contexto: 'processamento_fila',
+                detalhes: {
+                  error: error.message,
+                  stack: error.stack,
+                  url: window.location.href,
+                  userAgent: navigator.userAgent
+                }
+              })
+            }).catch(() => {}); // Silenciar erros do log
+            
             alert('Erro ao processar fila');
           }
         })
+        // Linha 156 e 180 - Substituir console.error por:
+        
+        // Para erros de AJAX/fetch no frontend:
         .catch(error => {
-          console.error('Erro:', error);
-          alert('Erro ao processar fila');
+        // Log no console do navegador (mantém para debug do frontend)
+        console.error('Erro:', error);
+        
+        // Enviar erro para o backend via fetch (opcional)
+        fetch('/admin/logs-interacoes', {
+        method: 'POST',
+        headers: {
+        'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+        tipo: 'frontend_error',
+        origem: 'fila-espera',
+        destino: 'ajax_request',
+        dados: {
+        error: error.message,
+        url: window.location.href,
+        userAgent: navigator.userAgent
+        }
+        })
+        }).catch(() => {}); // Silenciar erros do log
+        
+        // Mostrar mensagem amigável para o usuário
+        alert('Erro ao processar solicitação. Tente novamente.');
         });
       }
     }

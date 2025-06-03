@@ -1,64 +1,70 @@
-import { CacheManager } from '../db/redis.js';
+import { redisClient } from '../db/redis.js';
+import { loggers } from '../utils/logger.js';
 
-// Middleware para cache de consultas
-export const cacheMiddleware = (cacheKey, ttl = 300) => {
+// Middleware de cache
+export const cacheMiddleware = (ttl = 300) => {
   return async (req, res, next) => {
     try {
-      // Gerar chave única baseada na rota e parâmetros
-      const key = typeof cacheKey === 'function' 
-        ? cacheKey(req) 
-        : `${cacheKey}_${JSON.stringify(req.query)}`;
+      // Gerar chave de cache baseada na URL e query parameters
+      const cacheKey = `cache:${req.originalUrl}:${JSON.stringify(req.query)}`;
       
-      // Tentar recuperar do cache
-      const cachedData = await CacheManager.getCache(key);
+      // Tentar buscar no cache
+      const cachedData = await redisClient.get(cacheKey);
       
       if (cachedData) {
-        console.log(`✅ Cache hit para: ${key}`);
-        return res.json(cachedData);
+        loggers.cache.hit(cacheKey, req.user?.id);
+        return res.json(JSON.parse(cachedData));
       }
       
-      // Se não estiver em cache, continuar para a rota
-      console.log(`❌ Cache miss para: ${key}`);
+      loggers.cache.miss(cacheKey, req.user?.id);
       
-      // Interceptar a resposta para salvar no cache
+      // Interceptar a resposta para armazenar no cache
       const originalJson = res.json;
       res.json = function(data) {
-        // Salvar no cache
-        CacheManager.setCache(key, data, ttl);
-        // Chamar o método original
+        // Armazenar no cache apenas se a resposta for bem-sucedida
+        if (res.statusCode === 200) {
+          redisClient.setex(cacheKey, ttl, JSON.stringify(data))
+            .then(() => {
+              loggers.cache.set(cacheKey, ttl, req.user?.id);
+            })
+            .catch(err => {
+              loggers.cache.error('Failed to cache data', {
+                key: cacheKey,
+                error: err.message,
+                userId: req.user?.id
+              });
+            });
+        }
+        
         originalJson.call(this, data);
       };
       
-      req.cacheKey = key;
       next();
     } catch (error) {
-      console.error('Erro no middleware de cache:', error);
+      loggers.cache.error('Cache middleware error', {
+        error: error.message,
+        url: req.originalUrl,
+        userId: req.user?.id
+      });
       next();
     }
   };
 };
 
-// Middleware para invalidar cache após modificações
-export const invalidateCache = (patterns) => {
-  return async (req, res, next) => {
-    try {
-      // Executar a operação primeiro
-      const originalSend = res.send;
-      res.send = async function(data) {
-        // Se a operação foi bem-sucedida, invalidar cache
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          for (const pattern of patterns) {
-            await CacheManager.deleteCachePattern(pattern);
-            console.log(`🗑️ Cache invalidado: ${pattern}`);
-          }
-        }
-        originalSend.call(this, data);
-      };
-      
-      next();
-    } catch (error) {
-      console.error('Erro ao invalidar cache:', error);
-      next();
+// Função para invalidar cache
+export const invalidateCache = async (pattern, userId = null) => {
+  try {
+    const keys = await redisClient.keys(`cache:*${pattern}*`);
+    
+    if (keys.length > 0) {
+      await redisClient.del(keys);
+      loggers.cache.invalidate(pattern, userId);
     }
-  };
+  } catch (error) {
+    loggers.cache.error('Failed to invalidate cache', {
+      pattern,
+      error: error.message,
+      userId
+    });
+  }
 };
