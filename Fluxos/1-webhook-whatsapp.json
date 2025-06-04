@@ -1,0 +1,164 @@
+{
+  "name": "Webhook WhatsApp",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-receber",
+        "responseMode": "onReceived",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "set_mensagem",
+      "name": "Extrair Mensagem",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [400, 300],
+      "parameters": {
+        "fields": {
+          "mensagem": "={{$json.body.message || $json.body.messages?.[0]?.text?.body || ''}}",
+          "telefone": "={{$json.body.phone || $json.body.messages?.[0]?.from || ''}}"
+        },
+        "keepOnlySet": true
+      }
+    },
+    {
+      "id": "router_tipo_mensagem",
+      "name": "Tipo de Mensagem",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "field": "mensagem",
+        "dataType": "string",
+        "rules": [
+          {
+            "operation": "contains",
+            "value": "cancelar"
+          },
+          {
+            "operation": "contains",
+            "value": "reagendar"
+          },
+          {
+            "operation": "isEmpty"
+          }
+        ]
+      }
+    },
+    {
+      "id": "chamar_ia",
+      "name": "Encaminhar p/ IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 200],
+      "parameters": {
+        "url": "http://localhost:5678/webhook/ia-processar",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"mensagem\": {{$json.mensagem}}, \"telefone\": {{$json.telefone}} }"
+      }
+    },
+    {
+      "id": "chamar_cancelamento",
+      "name": "Encaminhar p/ Cancelamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 300],
+      "parameters": {
+        "url": "http://localhost:5678/webhook/cancelamentos",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"mensagem\": {{$json.mensagem}}, \"telefone\": {{$json.telefone}} }"
+      }
+    },
+    {
+      "id": "chamar_reagendamento",
+      "name": "Encaminhar p/ Reagendamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 400],
+      "parameters": {
+        "url": "http://localhost:5678/webhook/cancelamentos",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"mensagem\": {{$json.mensagem}}, \"telefone\": {{$json.telefone}} }"
+      }
+    },
+    {
+      "id": "erro_voz",
+      "name": "Mensagem de Voz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 500],
+      "parameters": {
+        "url": "http://localhost:5678/webhook/voz",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"payload\": {{$json}} }"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Extrair Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Mensagem": {
+      "main": [
+        [
+          {
+            "node": "Tipo de Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de Mensagem": {
+      "main": [
+        [
+          {
+            "node": "Encaminhar p/ Cancelamento",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Encaminhar p/ Reagendamento",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Mensagem de Voz",
+            "type": "main",
+            "index": 2
+          },
+          {
+            "node": "Encaminhar p/ IA",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -1,11 +1,29 @@
 fusionmael.ddns.net {
   tls internal
-  
-  handle /admin* {
+
+  # Painel Administrativo
+  handle_path /admin* {
     reverse_proxy painel:3000
   }
-  
+
+  # Evolution API
+  handle_path /evolution* {
+    reverse_proxy evolution-api:8080
+  }
+
+  # N8N (padrão)
   handle {
-    reverse_proxy n8n:5678
+    reverse_proxy n8n:5678 {
+      health_uri /healthz
+      health_interval 30s
+    }
+  }
+
+  # Headers de segurança
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy strict-origin-when-cross-origin
   }
 }

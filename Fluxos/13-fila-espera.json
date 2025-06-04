@@ -1,0 +1,65 @@
+{
+  "name": "13-fila-espera",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Webhook Fila de Espera",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "fila-espera",
+      "path": "fila-espera",
+      "httpMethod": "POST",
+      "responseMode": "onReceived"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Espera JSON: { telefone, nome, data_interesse, tipo_local, numero }\nreturn [{\n  json: {\n    telefone: $json.telefone,\n    nome: $json.nome,\n    data_interesse: $json.data_interesse,\n    tipo_local: $json.tipo_local,\n    numero: $json.numero || null\n  }\n}];"
+      },
+      "name": "Preparar Dados",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO fila_espera (cliente_id, data_interesse, tipo_local, numero)\nSELECT id, $1, $2, $3 FROM clientes WHERE telefone = $4\nRETURNING *;",
+        "values": "={{ [$json.data_interesse, $json.tipo_local, $json.numero, $json.telefone] }}"
+      },
+      "name": "Inserir na Fila",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "credentials": {
+        "postgres": "Postgres AppDB"
+      }
+    },
+    {
+      "parameters": {
+        "responseData": "={ \"status\": \"ok\", \"mensagem\": \"Você foi adicionado à fila de espera.\" }"
+      },
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Fila de Espera": {
+      "main": [
+        [{ "node": "Preparar Dados", "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar Dados": {
+      "main": [
+        [{ "node": "Inserir na Fila", "type": "main", "index": 0 }]
+      ]
+    },
+    "Inserir na Fila": {
+      "main": [
+        [{ "node": "Responder", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

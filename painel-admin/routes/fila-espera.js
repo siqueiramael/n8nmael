@@ -354,81 +354,14 @@ router.post('/processar', async (req, res) => {
       message: `${processados} itens processados com sucesso` 
     });
   } catch (error) {
-    // Substituir todas as 6 ocorrências de console.error por:
-    
-    // Linha 187 - Erro ao inserir item na fila
-    catch (error) {
-    loggers.error.error('Erro ao inserir item na fila de espera', {
-    error: error.message,
-    stack: error.stack,
-    userId: req.user?.id,
-    data: { cliente_telefone, cliente_nome, tipo_local },
-    duration: Date.now() - startTime
+    loggers.error.error('Erro ao processar fila', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip
     });
-    res.status(500).send('Erro ao salvar dados');
-    }
-    
-    // Linha 220 - Erro ao buscar item da fila
-    catch (error) {
-    loggers.error.error('Erro ao buscar item da fila de espera', {
-    error: error.message,
-    stack: error.stack,
-    itemId: req.params.id,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao buscar dados');
-    }
-    
-    // Linha 249 - Erro ao atualizar item da fila
-    catch (error) {
-    loggers.error.error('Erro ao atualizar item da fila de espera', {
-    error: error.message,
-    stack: error.stack,
-    itemId: id,
-    userId: req.user?.id,
-    data: req.body,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao salvar dados');
-    }
-    
-    // Linha 264 - Erro ao excluir item da fila
-    catch (error) {
-    loggers.error.error('Erro ao excluir item da fila de espera', {
-    error: error.message,
-    stack: error.stack,
-    itemId: id,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao excluir dados');
-    }
-    
-    // Linha 330 - Erro ao processar fila
-    catch (error) {
-    loggers.error.error('Erro ao processar fila de espera', {
-    error: error.message,
-    stack: error.stack,
-    itemId: id,
-    action: 'process',
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao processar item');
-    }
-    
-    // Linha 376 - Erro ao gerar relatório
-    catch (error) {
-    loggers.error.error('Erro ao gerar relatório de fila de espera', {
-    error: error.message,
-    stack: error.stack,
-    filters: req.query,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao gerar relatório');
-    }
+    res.status(500).json({ success: false, message: 'Erro ao processar fila' });
+  }
 });
 
 // Relatório da fila de espera

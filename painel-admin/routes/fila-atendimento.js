@@ -412,93 +412,14 @@ router.get('/relatorio', async (req, res) => {
       activeMenu: 'fila-atendimento'
     });
   } catch (error) {
-    // Substituir todas as 7 ocorrências de console.error por:
-    
-    // Linha 199 - Erro ao buscar solicitação
-    catch (error) {
-    loggers.error.error('Erro ao buscar solicitação', {
-    error: error.message,
-    stack: error.stack,
-    solicitacaoId: req.params.id,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao buscar dados');
-    }
-    
-    // Linha 236 - Erro ao atualizar solicitação
-    catch (error) {
-    loggers.error.error('Erro ao atualizar solicitação', {
-    error: error.message,
-    stack: error.stack,
-    solicitacaoId: id,
-    userId: req.user?.id,
-    data: req.body,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao salvar dados');
-    }
-    
-    // Linha 253 - Erro ao iniciar atendimento
-    catch (error) {
-    loggers.error.error('Erro ao iniciar atendimento', {
-    error: error.message,
-    stack: error.stack,
-    solicitacaoId: id,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao iniciar atendimento');
-    }
-    
-    // Linha 270 - Erro ao finalizar atendimento
-    catch (error) {
-    loggers.error.error('Erro ao finalizar atendimento', {
-    error: error.message,
-    stack: error.stack,
-    solicitacaoId: id,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao finalizar atendimento');
-    }
-    
-    // Linha 308 - Erro ao atualizar solicitação
-    catch (error) {
-    loggers.error.error('Erro ao atualizar status da solicitação', {
-    error: error.message,
-    stack: error.stack,
-    solicitacaoId: id,
-    newStatus: status,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao atualizar dados');
-    }
-    
-    // Linha 323 - Erro ao excluir solicitação
-    catch (error) {
-    loggers.error.error('Erro ao excluir solicitação', {
-    error: error.message,
-    stack: error.stack,
-    solicitacaoId: id,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao excluir dados');
-    }
-    
-    // Linha 375 - Erro ao gerar relatório
-    catch (error) {
     loggers.error.error('Erro ao gerar relatório de atendimento', {
-    error: error.message,
-    stack: error.stack,
-    filters: req.query,
-    userId: req.user?.id,
-    duration: Date.now() - startTime
+      error: error.message,
+      stack: error.stack,
+      filters: req.query,
+      userId: req.user?.id,
+      ip: req.ip
     });
     res.status(500).send('Erro ao gerar relatório');
-    }
   }
 });
 

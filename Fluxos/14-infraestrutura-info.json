@@ -1,0 +1,129 @@
+{
+  "name": "14-infraestrutura-info",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Webhook Infraestrutura",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "infraestrutura",
+      "path": "infraestrutura",
+      "httpMethod": "POST",
+      "responseMode": "onReceived"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Entrada esperada: { pergunta: \"tem banheiro?\", telefone: \"5511988889999\" }\nreturn [{\n  json: {\n    pergunta: $json.pergunta.trim(),\n    telefone: $json.telefone\n  }\n}];"
+      },
+      "name": "Extrair Pergunta",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "prompt": "Você é um atendente virtual de um balneário. Com base nas informações abaixo, responda a pergunta do cliente.\n\nInfraestrutura:\n{{ $json.infra }}\n\nPergunta: {{ $json.pergunta }}\n\nResponda de forma direta e educada.",
+        "temperature": 0.5,
+        "maxTokens": 200
+      },
+      "name": "IA → Responder Pergunta",
+      "type": "n8n-nodes-base.openai",
+      "typeVersion": 2,
+      "position": [800, 300],
+      "credentials": {
+        "openAiApi": "OpenAI API"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT categoria, descricao, localizacao FROM infraestrutura"
+      },
+      "name": "Buscar Infraestrutura",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "credentials": {
+        "postgres": "Postgres AppDB"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const lista = $json;\nconst infra = lista.map(item => `${item.categoria.toUpperCase()}: ${item.descricao} (Local: ${item.localizacao})`).join(\"\\n\");\nreturn [{ json: { pergunta: $json.pergunta, telefone: $json.telefone, infra } }];"
+      },
+      "name": "Formatar Infraestrutura",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "url": "https://api.evolution.whatsapp.com/sendText",
+        "options": {},
+        "method": "POST",
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "to",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        }
+      },
+      "name": "Enviar Resposta ao Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "credentials": {
+        "httpBasicAuth": "Evolution API"
+      }
+    },
+    {
+      "parameters": {
+        "responseData": "={ \"status\": \"ok\" }"
+      },
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1400, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Infraestrutura": {
+      "main": [
+        [{ "node": "Extrair Pergunta", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extrair Pergunta": {
+      "main": [
+        [{ "node": "Buscar Infraestrutura", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Infraestrutura": {
+      "main": [
+        [{ "node": "Formatar Infraestrutura", "type": "main", "index": 0 }]
+      ]
+    },
+    "Formatar Infraestrutura": {
+      "main": [
+        [{ "node": "IA → Responder Pergunta", "type": "main", "index": 0 }]
+      ]
+    },
+    "IA → Responder Pergunta": {
+      "main": [
+        [{ "node": "Enviar Resposta ao Cliente", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enviar Resposta ao Cliente": {
+      "main": [
+        [{ "node": "Responder Webhook", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

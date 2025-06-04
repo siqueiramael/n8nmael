@@ -264,10 +264,6 @@ router.put('/:id',
   }
 );
 
-// Adicionar imports no início do arquivo
-import { ExportUtils } from '../utils/export.js';
-import { createExportMiddleware } from '../middleware/export.js';
-
 // Função para construir query de créditos
 function buildCreditosQuery(filters) {
   let query = `

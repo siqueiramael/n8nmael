@@ -1,0 +1,85 @@
+{
+  "name": "Alertas e Lembretes por WhatsApp",
+  "nodes": [
+    {
+      "id": "gatilho-diario",
+      "name": "Agendador Diário",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, 200],
+      "parameters": {
+        "mode": "everyDay",
+        "hour": 8,
+        "minute": 0
+      }
+    },
+    {
+      "id": "consultar-hoje",
+      "name": "Agendamentos do Dia",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.telefone, a.tipo_local, a.numero FROM agendamentos a JOIN clientes c ON a.cliente_id = c.id WHERE a.data_agendamento = CURRENT_DATE AND a.status = 'confirmado';"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "enviar-lembrete",
+      "name": "Enviar Lembrete WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 200],
+      "parameters": {
+        "url": "https://api.evolution.com/send-message",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "mensagem",
+              "value": "Olá! Só um lembrete: sua reserva do {{ $json.tipo_local }} nº {{ $json.numero }} é hoje! 🌞"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Agendador Diário": {
+      "main": [
+        [
+          {
+            "node": "Agendamentos do Dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agendamentos do Dia": {
+      "main": [
+        [
+          {
+            "node": "Enviar Lembrete WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "name": "Pagamento via PIX",
+  "nodes": [
+    {
+      "id": "entrada",
+      "name": "Webhook Pagamento",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "path": "iniciar-pagamento",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "gerar-pix",
+      "name": "Gerar PIX e QR Code",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300],
+      "parameters": {
+        "functionCode": "// Gera um código PIX simples e um QR Code básico\nconst valor = $json.valor;\nconst chave = $env.CHAVE_PIX;\nconst id = `REF${Math.floor(100000 + Math.random() * 900000)}`;\nconst payload = `00020126580014BR.GOV.BCB.PIX01${chave.length < 10 ? '11' : '14'}${chave}520400005303986540${valor.toFixed(2).replace('.', '')}5802BR5913Balneario AI6009SaoPaulo62070503${id}6304`;\nreturn [{\n  telefone: $json.telefone,\n  valor,\n  id,\n  chave,\n  payload,\n  link_qrcode: `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(payload)}`\n}];"
+      }
+    },
+    {
+      "id": "salvar-pagamento",
+      "name": "Salvar Pagamento",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pagamentos (agendamento_id, valor, status, data_criacao)\nVALUES ($1, $2, 'pendente', NOW());",
+        "values": "={{ [ $json.agendamento_id, $json.valor ] }}"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "responder",
+      "name": "Enviar PIX ao Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 300],
+      "parameters": {
+        "url": "https://api.evolution.com/send-message",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "mensagem",
+              "value": "Pagamento via PIX\nValor: R$ {{ $json.valor.toFixed(2) }}\nChave: {{ $json.chave }}\nReferência: {{ $json.id }}\nVocê pode usar o QR Code abaixo ou copiar a chave para o aplicativo bancário."
+            },
+            {
+              "name": "imagem",
+              "value": "{{ $json.link_qrcode }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Pagamento": {
+      "main": [
+        [
+          {
+            "node": "Gerar PIX e QR Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar PIX e QR Code": {
+      "main": [
+        [
+          {
+            "node": "Salvar Pagamento",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar PIX ao Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

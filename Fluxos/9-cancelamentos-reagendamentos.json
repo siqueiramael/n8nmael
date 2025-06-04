@@ -1,0 +1,112 @@
+{
+  "name": "Cancelamentos e Reagendamentos",
+  "nodes": [
+    {
+      "id": "entrada",
+      "name": "Webhook Cancelamento",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 200],
+      "parameters": {
+        "path": "cancelamento",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "cancelar-agendamento",
+      "name": "Cancelar Agendamento",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agendamentos SET status = 'cancelado', data_cancelamento = NOW(), motivo_cancelamento = $1 WHERE cliente_id = (SELECT id FROM clientes WHERE telefone = $2) AND data_agendamento = $3 RETURNING id, valor;",
+        "values": "={{ [ $json.motivo, $json.telefone, $json.data_agendamento ] }}"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "criar-credito",
+      "name": "Gerar Crédito para Cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO creditos_cliente (cliente_id, origem_agendamento_id, valor, data_vencimento) VALUES ((SELECT id FROM clientes WHERE telefone = $1), $2, $3, CURRENT_DATE + INTERVAL '6 months');",
+        "values": "={{ [ $json.telefone, $node[\"Cancelar Agendamento\"].json[\"id\"], $node[\"Cancelar Agendamento\"].json[\"valor\"] ] }}"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "responder-cliente",
+      "name": "Confirmar Cancelamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 200],
+      "parameters": {
+        "url": "https://api.evolution.com/send-message",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "mensagem",
+              "value": "Sua reserva foi cancelada e o valor ficou como crédito para reagendamento futuro 😊"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Cancelamento": {
+      "main": [
+        [
+          {
+            "node": "Cancelar Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancelar Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Gerar Crédito para Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Crédito para Cliente": {
+      "main": [
+        [
+          {
+            "node": "Confirmar Cancelamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

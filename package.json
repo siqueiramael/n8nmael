@@ -2,6 +2,7 @@
   "dependencies": {
     "joi": "^17.13.3",
     "redis": "^4.7.1",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "xlsx": "^0.18.5"
   }
 }

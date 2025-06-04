@@ -1,0 +1,131 @@
+{
+  "name": "Verificação de Disponibilidade",
+  "nodes": [
+    {
+      "id": "entrada",
+      "name": "Webhook Disponibilidade",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "path": "verifica-disponibilidade",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "extrair-data",
+      "name": "Extrair Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300],
+      "parameters": {
+        "functionCode": "const data = $json.data || $json.msg || '';\nreturn [{\n  data_consulta: data.trim()\n}];"
+      }
+    },
+    {
+      "id": "consulta-postgres",
+      "name": "Consultar Agenda",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT tipo_local, numero FROM precos_quiosques\nWHERE numero IS NOT NULL\nAND NOT EXISTS (\n  SELECT 1 FROM agendamentos a\n  WHERE a.tipo_local = precos_quiosques.tipo_local\n  AND a.numero = precos_quiosques.numero\n  AND a.data_agendamento = $1\n  AND a.status IN ('confirmado', 'pendente')\n)\nORDER BY tipo_local, numero;",
+        "values": "={{ [ $json.data_consulta ] }}"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "formatar-resposta",
+      "name": "Formatar Resultado",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [800, 300],
+      "parameters": {
+        "functionCode": "const lista = $items.map(i => `${i.json.tipo_local} ${i.json.numero}`);\nreturn [{\n  telefone: $json.telefone,\n  mensagem: lista.length ? `Disponível para ${$json.data_consulta}:\\n- ${lista.join('\\n- ')}` : `Nenhum quiosque/barracão disponível para ${$json.data_consulta}.`\n}];"
+      }
+    },
+    {
+      "id": "responde-whatsapp",
+      "name": "Enviar Resposta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1000, 300],
+      "parameters": {
+        "url": "https://api.evolution.com/send-message",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "mensagem",
+              "value": "={{ $json.mensagem }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Disponibilidade": {
+      "main": [
+        [
+          {
+            "node": "Extrair Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Data": {
+      "main": [
+        [
+          {
+            "node": "Consultar Agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Agenda": {
+      "main": [
+        [
+          {
+            "node": "Formatar Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Resultado": {
+      "main": [
+        [
+          {
+            "node": "Enviar Resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

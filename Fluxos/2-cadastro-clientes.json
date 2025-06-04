@@ -1,0 +1,139 @@
+{
+  "name": "Cadastro ou Atualização de Clientes",
+  "nodes": [
+    {
+      "id": "webhook-clientes",
+      "name": "Webhook Cadastro",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cadastro-clientes",
+        "responseMode": "onReceived",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "postgres-check",
+      "name": "Verificar Cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [400, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id FROM clientes WHERE telefone = $1",
+        "values": "={{ [ $json.telefone ] }}"
+      },
+      "credentials": {
+        "postgres": {
+          "database": "appdb",
+          "host": "appdb",
+          "port": 5432,
+          "user": "appuser",
+          "password": "Leamsi.048271"
+        }
+      }
+    },
+    {
+      "id": "switch-existe",
+      "name": "Já Existe?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "field": "data.length",
+        "rules": [
+          {
+            "operation": "larger",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "insert-cliente",
+      "name": "Inserir Cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [800, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clientes (nome, telefone, telefone_whatsapp) VALUES ($1, $2, $3)",
+        "values": "={{ [ $json.nome, $json.telefone, $json.telefone ] }}"
+      },
+      "credentials": {
+        "postgres": {
+          "database": "appdb",
+          "host": "appdb",
+          "port": 5432,
+          "user": "appuser",
+          "password": "Leamsi.048271"
+        }
+      }
+    },
+    {
+      "id": "update-cliente",
+      "name": "Atualizar Nome",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [800, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE clientes SET nome = $1 WHERE telefone = $2",
+        "values": "={{ [ $json.nome, $json.telefone ] }}"
+      },
+      "credentials": {
+        "postgres": {
+          "database": "appdb",
+          "host": "appdb",
+          "port": 5432,
+          "user": "appuser",
+          "password": "Leamsi.048271"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Cadastro": {
+      "main": [
+        [
+          {
+            "node": "Verificar Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Cliente": {
+      "main": [
+        [
+          {
+            "node": "Já Existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Já Existe?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Nome",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Inserir Cliente",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -242,28 +242,15 @@ router.get('/exportar', async (req, res) => {
     });
     
     res.end();
-  } // Linha 246 - Erro ao exportar logs
-  catch (error) {
-    loggers.error.error('Erro ao exportar logs de interações', {
-      error: error.message,
-      stack: error.stack,
-      filters: req.query,
-      userId: req.user?.id,
-      duration: Date.now() - startTime
-    });
-    res.status(500).send('Erro ao exportar dados');
-  }
-  
-  // Linha 297 - Erro ao gerar relatório de logs
-  catch (error) {
-    loggers.error.error('Erro ao gerar relatório de logs de interações', {
+  } catch (error) {
+    loggers.error.error('Erro ao exportar logs', {
       error: error.message,
       stack: error.stack,
       filters: req.query,
       userId: req.user?.id,
       ip: req.ip
     });
-    res.status(500).send('Erro ao gerar relatório');
+    res.status(500).send('Erro ao exportar dados');
   }
 });
 

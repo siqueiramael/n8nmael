@@ -1,0 +1,89 @@
+{
+  "name": "Verificação de Comprovante",
+  "nodes": [
+    {
+      "id": "entrada",
+      "name": "Webhook Comprovante",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "path": "verificar-comprovante",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "salvar-comprovante",
+      "name": "Salvar URL Comprovante",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE pagamentos SET comprovante_url = $1, status = 'aguardando', data_atualizacao = NOW()\nWHERE agendamento_id = $2;",
+        "values": "={{ [ $json.url, $json.agendamento_id ] }}"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "responder-cliente",
+      "name": "Mensagem de Confirmação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "url": "https://api.evolution.com/send-message",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "mensagem",
+              "value": "Comprovante recebido! Vamos validar e te avisar assim que a reserva estiver confirmada."
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Comprovante": {
+      "main": [
+        [
+          {
+            "node": "Salvar URL Comprovante",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar URL Comprovante": {
+      "main": [
+        [
+          {
+            "node": "Mensagem de Confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

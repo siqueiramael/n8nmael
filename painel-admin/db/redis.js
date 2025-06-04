@@ -1,236 +1,151 @@
 import { createClient } from 'redis';
-import { loggers } from '../utils/logger.js';
 
-// Configuração do cliente Redis
-const redisClient = createClient({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-  database: process.env.REDIS_DB || 0
-});
+// Estado global da conexão
+let client = null;
+let isConnected = false;
+let connectionPromise = null;
 
-// Conectar ao Redis com logs Winston
-redisClient.on('error', (err) => {
-  loggers.system.error('Redis connection error', {
-    error: err.message,
-    stack: err.stack,
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379
+// Configuração do Redis
+const redisConfig = {
+  socket: {
+    host: process.env.REDIS_HOST || 'redis',
+    port: parseInt(process.env.REDIS_PORT) || 6379,
+    connectTimeout: 10000,
+    lazyConnect: true
+  },
+  database: parseInt(process.env.REDIS_DB) || 0
+};
+
+if (process.env.REDIS_PASSWORD) {
+  redisConfig.password = process.env.REDIS_PASSWORD;
+}
+
+// Função para criar cliente (singleton)
+function createRedisClient() {
+  if (client) return client;
+  
+  client = createClient(redisConfig);
+  
+  // Event listeners apenas uma vez
+  client.on('error', (err) => {
+    console.error('Redis Error:', err.message);
+    isConnected = false;
   });
-});
-
-redisClient.on('connect', () => {
-  loggers.system.info('Redis connected successfully', {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379,
-    database: process.env.REDIS_DB || 0
+  
+  client.on('connect', () => {
+    console.log('🔌 Redis connecting...');
   });
-});
-
-redisClient.on('ready', () => {
-  loggers.system.info('Redis client ready', {
-    status: 'ready'
+  
+  client.on('ready', () => {
+    console.log('✅ Redis ready');
+    isConnected = true;
   });
-});
-
-redisClient.on('end', () => {
-  loggers.system.warn('Redis connection ended', {
-    status: 'disconnected'
+  
+  client.on('end', () => {
+    console.log('🔌 Redis disconnected');
+    isConnected = false;
   });
-});
+  
+  return client;
+}
 
-// Conectar
-await redisClient.connect();
-
-// Classe para gerenciar cache com logs Winston
-class CacheManager {
-  // Cache de consultas com TTL
-  static async setCache(key, data, ttl = 300) {
-    const startTime = Date.now();
-    
-    try {
-      await redisClient.setEx(key, ttl, JSON.stringify(data));
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.set(key, ttl, null, {
-        duration,
-        dataSize: JSON.stringify(data).length
-      });
-      
-      return true;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.error('Cache set error', {
-        key,
-        error: error.message,
-        stack: error.stack,
-        duration,
-        ttl
-      });
-      
-      return false;
-    }
+// Função de conexão com proteção
+export async function connectRedis() {
+  if (isConnected && client) {
+    console.log('✅ Redis already connected');
+    return client;
   }
-
-  // Recuperar cache
-  static async getCache(key) {
-    const startTime = Date.now();
+  
+  if (connectionPromise) {
+    console.log('⏳ Waiting for existing connection...');
+    return connectionPromise;
+  }
+  
+  try {
+    console.log('🔄 Connecting to Redis...');
     
+    if (!client) {
+      client = createRedisClient();
+    }
+    
+    connectionPromise = client.connect();
+    await connectionPromise;
+    
+    console.log('✅ Redis connected successfully');
+    isConnected = true;
+    connectionPromise = null;
+    
+    return client;
+  } catch (error) {
+    console.error('❌ Redis connection failed:', error.message);
+    connectionPromise = null;
+    isConnected = false;
+    throw error;
+  }
+}
+
+// Cache Manager simplificado
+export class CacheManager {
+  constructor() {
+    this.client = null;
+  }
+  
+  async ensureConnection() {
+    if (!this.client || !isConnected) {
+      this.client = await connectRedis();
+    }
+    return this.client;
+  }
+  
+  async get(key) {
     try {
-      const data = await redisClient.get(key);
-      const duration = Date.now() - startTime;
-      
-      if (data) {
-        loggers.cache.hit(key, null, {
-          duration,
-          dataSize: data.length
-        });
-        return JSON.parse(data);
-      } else {
-        loggers.cache.miss(key, null, {
-          duration
-        });
-        return null;
-      }
+      const client = await this.ensureConnection();
+      const value = await client.get(key);
+      return value ? JSON.parse(value) : null;
     } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.error('Cache get error', {
-        key,
-        error: error.message,
-        stack: error.stack,
-        duration
-      });
-      
+      console.error('Cache get error:', error.message);
       return null;
     }
   }
-
-  // Invalidar cache específico
-  static async deleteCache(key) {
-    const startTime = Date.now();
-    
+  
+  async set(key, value, ttl = 3600) {
     try {
-      const result = await redisClient.del(key);
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.invalidate(key, null, {
-        duration,
-        keysDeleted: result
-      });
-      
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.error('Cache delete error', {
-        key,
-        error: error.message,
-        stack: error.stack,
-        duration
-      });
-      
-      return 0;
-    }
-  }
-
-  // Invalidar múltiplas chaves por padrão
-  static async deleteCachePattern(pattern) {
-    const startTime = Date.now();
-    
-    try {
-      const keys = await redisClient.keys(pattern);
-      if (keys.length > 0) {
-        const result = await redisClient.del(keys);
-        const duration = Date.now() - startTime;
-        
-        loggers.cache.invalidate(pattern, null, {
-          duration,
-          keysFound: keys.length,
-          keysDeleted: result,
-          keys: keys.slice(0, 10) // Log apenas as primeiras 10 chaves
-        });
-        
-        return result;
-      }
-      
-      const duration = Date.now() - startTime;
-      loggers.cache.invalidate(pattern, null, {
-        duration,
-        keysFound: 0,
-        keysDeleted: 0
-      });
-      
-      return 0;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.error('Cache pattern delete error', {
-        pattern,
-        error: error.message,
-        stack: error.stack,
-        duration
-      });
-      
-      return 0;
-    }
-  }
-
-  // Limpar todo o cache
-  static async clearAll() {
-    const startTime = Date.now();
-    
-    try {
-      await redisClient.flushDb();
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.invalidate('*', null, {
-        duration,
-        operation: 'FLUSH_ALL'
-      });
-      
+      const client = await this.ensureConnection();
+      await client.setEx(key, ttl, JSON.stringify(value));
       return true;
     } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.error('Cache flush error', {
-        error: error.message,
-        stack: error.stack,
-        duration
-      });
-      
+      console.error('Cache set error:', error.message);
       return false;
     }
   }
-
-  // Estatísticas do cache
-  static async getStats() {
-    const startTime = Date.now();
-    
+  
+  async del(key) {
     try {
-      const info = await redisClient.info('memory');
-      const keyspace = await redisClient.info('keyspace');
-      const duration = Date.now() - startTime;
-      
-      loggers.system.info('Cache stats retrieved', {
-        duration,
-        info: info.substring(0, 200) // Limitar tamanho do log
-      });
-      
-      return { info, keyspace };
+      const client = await this.ensureConnection();
+      await client.del(key);
+      return true;
     } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      loggers.cache.error('Cache stats error', {
-        error: error.message,
-        stack: error.stack,
-        duration
-      });
-      
-      return null;
+      console.error('Cache del error:', error.message);
+      return false;
     }
   }
 }
 
-export { redisClient, CacheManager };
+// Função para fechar conexão
+export async function closeRedis() {
+  if (client && isConnected) {
+    try {
+      await client.quit();
+      console.log('✅ Redis connection closed');
+    } catch (error) {
+      console.error('Error closing Redis:', error.message);
+    }
+  }
+  client = null;
+  isConnected = false;
+  connectionPromise = null;
+}
+
+// Exports
+export { client as redisClient };
+export default { connectRedis, closeRedis, CacheManager };

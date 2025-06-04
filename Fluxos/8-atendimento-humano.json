@@ -1,0 +1,89 @@
+	{
+  "name": "Encaminhar para Atendimento Humano",
+  "nodes": [
+    {
+      "id": "entrada",
+      "name": "Webhook Atendimento Humano",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 200],
+      "parameters": {
+        "path": "atendimento-humano",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "inserir-fila",
+      "name": "Adicionar na Fila",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO fila_atendimento (cliente_telefone, cliente_nome, status, contexto_conversa) VALUES ($1, $2, 'pendente', $3);",
+        "values": "={{ [ $json.telefone, $json.nome, $json.mensagem ] }}"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "resposta",
+      "name": "Confirmação para Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [600, 200],
+      "parameters": {
+        "url": "https://api.evolution.com/send-message",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "mensagem",
+              "value": "Um atendente irá te responder em breve 😊"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Atendimento Humano": {
+      "main": [
+        [
+          {
+            "node": "Adicionar na Fila",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adicionar na Fila": {
+      "main": [
+        [
+          {
+            "node": "Confirmação para Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

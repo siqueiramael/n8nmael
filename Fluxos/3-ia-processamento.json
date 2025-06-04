@@ -1,0 +1,121 @@
+{
+  "name": "IA - Processamento de Mensagens",
+  "nodes": [
+    {
+      "id": "entrada",
+      "name": "Webhook IA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "path": "ia-processamento",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "formata-msg",
+      "name": "Formata Entrada",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300],
+      "parameters": {
+        "functionCode": "return [{\n  prompt: `Cliente disse: \"${$json.mensagem}\"\n\nResponda como assistente do balneário de forma direta e útil.`,\n  telefone: $json.telefone\n}];"
+      }
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI Chat",
+      "type": "n8n-nodes-base.openai",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "resource": "chatCompletion",
+        "model": "gpt-3.5-turbo",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Você é um assistente útil de um balneário que agenda quiosques e barracões."
+          },
+          {
+            "role": "user",
+            "content": "={{ $json.prompt }}"
+          }
+        ]
+      },
+      "credentials": {
+        "openAiApi": {
+          "apiKey": "={{ $env.OPENAI_API_KEY }}"
+        }
+      }
+    },
+    {
+      "id": "envia-resposta",
+      "name": "Responder WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 300],
+      "parameters": {
+        "url": "https://api.evolution.com/send-message",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "mensagem",
+              "value": "={{ $json.choices[0].message.content }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook IA": {
+      "main": [
+        [
+          {
+            "node": "Formata Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formata Entrada": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat": {
+      "main": [
+        [
+          {
+            "node": "Responder WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "name": "12-voz-transcricao",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Receber Áudio",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "transcricao-audio",
+      "path": "transcricao-audio",
+      "httpMethod": "POST",
+      "responseMode": "onReceived"
+    },
+    {
+      "parameters": {
+        "url": "https://api.evolution.com.br/download",
+        "method": "GET",
+        "jsonParameters": true,
+        "queryParametersJson": "={ \"file\": \"{{ $json.audio_url }}\" }",
+        "options": {}
+      },
+      "name": "Baixar Áudio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "headerAuth",
+        "sendBinaryData": true,
+        "binaryPropertyName": "data",
+        "options": {
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.OPENAI_API_KEY }}"
+            }
+          ]
+        },
+        "bodyContentType": "multipart-form-data",
+        "bodyParameters": [
+          {
+            "name": "model",
+            "value": "whisper-1"
+          },
+          {
+            "name": "file",
+            "value": "={{ $binary.data.fileName }}"
+          }
+        ]
+      },
+      "name": "Transcrever com Whisper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { texto: $json.text } }];"
+      },
+      "name": "Preparar Texto",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aqui você conecta ao fluxo de IA principal\nreturn [{ json: { pergunta: $json.texto, telefone: $json.telefone } }];"
+      },
+      "name": "Encaminhar para IA",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Receber Áudio": {
+      "main": [
+        [{ "node": "Baixar Áudio", "type": "main", "index": 0 }]
+      ]
+    },
+    "Baixar Áudio": {
+      "main": [
+        [{ "node": "Transcrever com Whisper", "type": "main", "index": 0 }]
+      ]
+    },
+    "Transcrever com Whisper": {
+      "main": [
+        [{ "node": "Preparar Texto", "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar Texto": {
+      "main": [
+        [{ "node": "Encaminhar para IA", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

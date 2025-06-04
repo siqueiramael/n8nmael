@@ -1,0 +1,97 @@
+{
+  "name": "11-mensagens-promocionais",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "iniciar",
+      "name": "Iniciar Promo",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [\n  {\n    json: {\n      titulo: \"Promoção Fim de Semana\",\n      mensagem: \"🌞 Vem pro Balneário! Temos quiosques disponíveis e diversão garantida! Reserve já!\",\n      intervalo_ms: 5000\n    }\n  }\n];"
+      },
+      "name": "Definir Campanha",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT nome, telefone FROM clientes WHERE status = 'ativo';"
+      },
+      "name": "Buscar Clientes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "credentials": {
+        "postgres": {
+          "id": "__APPDB_CREDENTIAL_ID__",
+          "name": "appdb"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const campanha = items[0].json;\nconst clientes = items.slice(1);\n\nreturn clientes.map((item, index) => ({\n  json: {\n    telefone: item.json.telefone,\n    nome: item.json.nome,\n    mensagem: `${item.json.nome.split(' ')[0]}, ${campanha.mensagem}`,\n    delay: index * campanha.intervalo_ms\n  }\n}));"
+      },
+      "name": "Preparar Mensagens",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "mode": "sequential",
+        "interval": 5
+      },
+      "name": "Delay Envio",
+      "type": "n8n-nodes-base.interval",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.evolution.com.br/send-text",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"apiKey\": \"{{ $env.EVOLUTION_API_KEY }}\",\n  \"phone\": \"{{ $json.telefone }}\",\n  \"message\": \"{{ $json.mensagem }}\"\n}"
+      },
+      "name": "Enviar Mensagem WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "Iniciar Promo": {
+      "main": [
+        [{ "node": "Definir Campanha", "type": "main", "index": 0 }]
+      ]
+    },
+    "Definir Campanha": {
+      "main": [
+        [{ "node": "Buscar Clientes", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Clientes": {
+      "main": [
+        [{ "node": "Preparar Mensagens", "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar Mensagens": {
+      "main": [
+        [{ "node": "Delay Envio", "type": "main", "index": 0 }]
+      ]
+    },
+    "Delay Envio": {
+      "main": [
+        [{ "node": "Enviar Mensagem WhatsApp", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

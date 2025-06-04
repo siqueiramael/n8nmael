@@ -1,0 +1,114 @@
+{
+  "name": "Envio de Fotos e Mídias",
+  "nodes": [
+    {
+      "id": "entrada",
+      "name": "Webhook Solicitação de Fotos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 200],
+      "parameters": {
+        "path": "enviar-fotos",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "consulta-midias",
+      "name": "Buscar Mídias",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT url, tipo, titulo FROM midias WHERE referencia_tipo = $1 AND (referencia_id IS NULL OR referencia_id = $2) LIMIT 5;",
+        "values": "={{ [ $json.referencia_tipo, $json.referencia_id ] }}"
+      },
+      "credentials": {
+        "postgres": "appdb"
+      }
+    },
+    {
+      "id": "enviar-fotos",
+      "name": "Enviar Mídias",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [600, 200],
+      "parameters": {
+        "batchSize": 1
+      }
+    },
+    {
+      "id": "api-whatsapp",
+      "name": "Enviar via WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 200],
+      "parameters": {
+        "url": "https://api.evolution.com/send-media",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{ $env.EVOLUTION_API_KEY }}"
+          }
+        ],
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "telefone",
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "url",
+              "value": "={{ $json.url }}"
+            },
+            {
+              "name": "titulo",
+              "value": "={{ $json.titulo }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Solicitação de Fotos": {
+      "main": [
+        [
+          {
+            "node": "Buscar Mídias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Mídias": {
+      "main": [
+        [
+          {
+            "node": "Enviar Mídias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Mídias": {
+      "main": [
+        [
+          {
+            "node": "Enviar via WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

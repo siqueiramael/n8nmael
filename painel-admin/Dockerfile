@@ -1,19 +1,36 @@
-FROM node:20-alpine
+FROM node:18-alpine
 
-# Cria e define o diretório de trabalho
+# Instalar dependências do sistema
+RUN apk add --no-cache curl
+
+# Criar usuário não-root
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S painel -u 1001
+
+# Criar diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos de dependências primeiro para aproveitar o cache do Docker
+# Copiar arquivos de dependências
 COPY package*.json ./
 
-# Instala as dependências
-RUN npm install
+# Instalar dependências
+RUN npm ci --only=production && npm cache clean --force
 
-# Copia o restante dos arquivos da aplicação
+# Copiar código da aplicação
 COPY . .
 
-# Expõe a porta que a aplicação usa
+# Criar diretório de logs
+RUN mkdir -p logs && chown -R painel:nodejs /app
+
+# Mudar para usuário não-root
+USER painel
+
+# Expor porta
 EXPOSE 3000
 
-# Comando para iniciar a aplicação
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Comando de inicialização
 CMD ["node", "index.js"]
